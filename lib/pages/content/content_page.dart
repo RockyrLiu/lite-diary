@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' hide isNull, isNotNull, Column;
@@ -26,8 +24,7 @@ class ContentPage extends ConsumerStatefulWidget {
   ConsumerState<ContentPage> createState() => _ContentPageState();
 }
 
-class _ContentPageState extends ConsumerState<ContentPage>
-    with WidgetsBindingObserver, TickerProviderStateMixin {
+class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingObserver {
   final TextEditingController _contentController = TextEditingController();
   Timer? _saveTimer;
   DateTime _currentDate = DateTime.now();
@@ -38,11 +35,7 @@ class _ContentPageState extends ConsumerState<ContentPage>
   int _diaryGroupId = 1;
   EditorMode _editorMode = EditorMode.preview;
   bool _hasUnsavedChanges = false;
-
-  late AnimationController _flipController;
-  bool _isFlipping = false;
-  bool _flipForward = true;
-  DateTime? _pendingDate;
+  bool _slideForward = true;
 
   AppDatabase get db => ref.read(databaseProvider);
 
@@ -58,8 +51,6 @@ class _ContentPageState extends ConsumerState<ContentPage>
   @override
   void initState() {
     super.initState();
-    _flipController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
-    _flipController.addStatusListener(_onFlipStatusChanged);
     WidgetsBinding.instance.addObserver(this);
     _init();
   }
@@ -111,7 +102,6 @@ class _ContentPageState extends ConsumerState<ContentPage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _flipController.dispose();
     _saveTimer?.cancel();
     _saveNow();
     _contentController.dispose();
@@ -173,54 +163,36 @@ class _ContentPageState extends ConsumerState<ContentPage>
     }
   }
 
-  void _onFlipStatusChanged(AnimationStatus status) {
-    if (status == AnimationStatus.completed) {
-      _flipController.reset();
-      if (_pendingDate != null) {
-        final pending = _pendingDate!;
-        _pendingDate = null;
-        setState(() {
-          _currentDate = pending;
-          _isFlipping = false;
-        });
-        _loadEntriesForDateAfterFlip(pending);
-      }
-    }
-  }
-
-  Future<void> _loadEntriesForDateAfterFlip(DateTime date) async {
+  Future<void> _goToDate(DateTime date, bool forward) async {
+    _saveNow();
+    _slideForward = forward;
     final entries = await db.getEntriesByDate(date);
     if (!mounted) return;
-    setState(() { _currentEntries = entries; _currentEntryIndex = 0; _editingEntryId = null; });
+    setState(() {
+      _currentDate = date;
+      _currentEntries = entries;
+      _currentEntryIndex = 0;
+      _editingEntryId = null;
+    });
     _loadCurrentEntry();
   }
 
   Future<void> _goToNextDate() async {
-    if (_isFlipping) return;
     _saveNow();
     final entries = await db.getAllEntries();
     final dates = entries.map((e) => DateTime(e.date.year, e.date.month, e.date.day)).toSet().toList()..sort();
     final currentKey = DateTime(_currentDate.year, _currentDate.month, _currentDate.day);
     final nextDate = dates.firstWhere((d) => d.isAfter(currentKey), orElse: () => _currentDate);
-    if (nextDate == _currentDate) return;
-    _pendingDate = nextDate;
-    _flipForward = true;
-    _isFlipping = true;
-    _flipController.forward();
+    if (nextDate != _currentDate) await _goToDate(nextDate, true);
   }
 
   Future<void> _goToPreviousDate() async {
-    if (_isFlipping) return;
     _saveNow();
     final entries = await db.getAllEntries();
     final dates = entries.map((e) => DateTime(e.date.year, e.date.month, e.date.day)).toSet().toList()..sort();
     final currentKey = DateTime(_currentDate.year, _currentDate.month, _currentDate.day);
     final prevDate = dates.reversed.firstWhere((d) => d.isBefore(currentKey), orElse: () => _currentDate);
-    if (prevDate == _currentDate) return;
-    _pendingDate = prevDate;
-    _flipForward = false;
-    _isFlipping = true;
-    _flipController.forward();
+    if (prevDate != _currentDate) await _goToDate(prevDate, false);
   }
 
   void _goToNextEntry() { _saveNow(); if (_currentEntryIndex < _currentEntries.length - 1) { setState(() { _currentEntryIndex++; _loadCurrentEntry(); }); } }
@@ -257,64 +229,6 @@ class _ContentPageState extends ConsumerState<ContentPage>
       setState(() => _currentGroupId = selected);
       if (_editingEntryId != null) { await db.updateEntry(_editingEntryId!, EntriesCompanion(groupId: Value(selected), updatedAt: Value(DateTime.now()))); ref.invalidate(allEntriesProvider); }
     }
-  }
-
-  Widget _buildFlipBody(RenderingSettings renderSettings) {
-    final size = MediaQuery.of(context).size;
-    return AnimatedBuilder(
-      animation: _flipController,
-      builder: (context, child) {
-        final progress = _flipController.value;
-
-        return Stack(
-          children: [
-            // Back page (new content)
-            if (progress > 0.5)
-              Transform(
-                alignment: _flipForward ? Alignment.centerRight : Alignment.centerLeft,
-                transform: Matrix4.identity()
-                  ..setEntry(3, 2, 0.002)
-                  ..rotateY(_flipForward
-                      ? (math.pi / 2) - (progress - 0.5) * math.pi
-                      : -(math.pi / 2) + (progress - 0.5) * math.pi),
-                child: _buildContentPane(renderSettings),
-              ),
-            // Front page (current content)
-            if (progress <= 0.5)
-              Transform(
-                alignment: _flipForward ? Alignment.centerLeft : Alignment.centerRight,
-                transform: Matrix4.identity()
-                  ..setEntry(3, 2, 0.002)
-                  ..rotateY(_flipForward
-                      ? progress * math.pi
-                      : -progress * math.pi),
-                child: _buildContentPane(renderSettings),
-              ),
-            // Crease shadow
-            Positioned(
-              left: _flipForward
-                  ? (progress <= 0.5 ? size.width * progress * 2 : null)
-                  : null,
-              right: _flipForward
-                  ? null
-                  : (progress <= 0.5 ? size.width * progress * 2 : null),
-              top: 0,
-              bottom: 0,
-              child: Container(
-                width: 4,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.black.withAlpha(60), Colors.transparent],
-                    begin: _flipForward ? Alignment.centerLeft : Alignment.centerRight,
-                    end: _flipForward ? Alignment.centerRight : Alignment.centerLeft,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   Widget _buildContentPane(RenderingSettings renderSettings) {
@@ -355,26 +269,37 @@ class _ContentPageState extends ConsumerState<ContentPage>
           ),
         ],
       ),
-      body: _isFlipping
-          ? _buildFlipBody(renderSettings)
-          : GestureDetector(
-              onHorizontalDragEnd: (details) {
+      body: GestureDetector(
+        onHorizontalDragEnd: (details) {
           if (details.primaryVelocity != null) {
             if (details.primaryVelocity! < -50) { _goToNextDate(); } else if (details.primaryVelocity! > 50) { _goToPreviousDate(); }
           }
         },
-        child: Column(children: [
-          if (_editingEntryId != null)
-            TagEditor(key: ValueKey(_editingEntryId), entryId: _editingEntryId!, readOnly: _editorMode != EditorMode.source),
-          Expanded(child: MarkdownEditor(
-            controller: _contentController, externalMode: _editorMode,
-            titleSize: renderSettings.titleSize, bodySize: renderSettings.bodySize,
-            onChanged: (_) => _scheduleSave(),
-            onInsertImage: _editingEntryId != null ? () async => ImageService().pickAndSaveImage(ref, _editingEntryId!) : null,
-          )),
-        ]),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeIn,
+          transitionBuilder: (child, animation) {
+            return SlideTransition(
+              position: Tween<Offset>(
+                begin: Offset(_slideForward ? 1 : -1, 0),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+              child: child,
+            );
+          },
+          child: KeyedSubtree(
+            key: ValueKey(_currentDate),
+            child: _buildContentPane(renderSettings),
+          ),
+        ),
       ),
-      floatingActionButton: FloatingActionButton(onPressed: _startNewEntry, tooltip: '补记', child: const Icon(Icons.add)),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _startNewEntry,
+        tooltip: '补记',
+        backgroundColor: Color.lerp(Theme.of(context).colorScheme.primary, Colors.white, 0.6)!,
+        child: const Icon(Icons.add),
+      ),
     );
   }
 }
