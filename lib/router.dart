@@ -7,6 +7,7 @@ import 'pages/llm/llm_page.dart';
 import 'pages/settings/settings_page.dart';
 import 'pages/settings/export_page.dart';
 import 'pages/settings/about_page.dart';
+import 'pages/settings/display_page.dart';
 
 final router = GoRouter(
   initialLocation: '/',
@@ -47,7 +48,19 @@ final router = GoRouter(
                     date = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
                   }
                 }
-                return ContentPage(initialDate: date);
+                return ContentPage(key: ValueKey('content-${dateStr ?? 'today'}'), initialDate: date);
+              },
+            ),
+            GoRoute(
+              path: '/content/date/:dateStr',
+              builder: (context, state) {
+                final dateStr = state.pathParameters['dateStr']!;
+                final parts = dateStr.split('-');
+                DateTime? date;
+                if (parts.length == 3) {
+                  date = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+                }
+                return ContentPage(key: ValueKey('content-$dateStr'), initialDate: date);
               },
             ),
             GoRoute(
@@ -77,13 +90,36 @@ final router = GoRouter(
         ),
         StatefulShellBranch(
           routes: [
-            GoRoute(path: '/settings', builder: (context, state) => const SettingsPage()),
-            GoRoute(path: '/settings/cloud', builder: (context, state) => const SettingsPage()),
-            GoRoute(path: '/settings/encryption', builder: (context, state) => const SettingsPage()),
-            GoRoute(path: '/settings/llm', builder: (context, state) => const SettingsPage()),
-            GoRoute(path: '/settings/display', builder: (context, state) => const SettingsPage()),
-            GoRoute(path: '/settings/about', builder: (context, state) => const AboutPage()),
-            GoRoute(path: '/export', builder: (context, state) => const ExportPage()),
+            GoRoute(
+              path: '/settings',
+              builder: (context, state) => const SettingsPage(),
+              routes: [
+                GoRoute(
+                  path: 'display',
+                  builder: (context, state) => const DisplayPage(),
+                ),
+                GoRoute(
+                  path: 'encryption',
+                  builder: (context, state) => const SettingsPage(),
+                ),
+                GoRoute(
+                  path: 'cloud',
+                  builder: (context, state) => const SettingsPage(),
+                ),
+                GoRoute(
+                  path: 'llm',
+                  builder: (context, state) => const SettingsPage(),
+                ),
+                GoRoute(
+                  path: 'about',
+                  builder: (context, state) => const AboutPage(),
+                ),
+                GoRoute(
+                  path: 'export',
+                  builder: (context, state) => const ExportPage(),
+                ),
+              ],
+            ),
           ],
         ),
       ],

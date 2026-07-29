@@ -16,8 +16,9 @@ class HeatmapWidget extends StatelessWidget {
   final int year;
   final void Function(DateTime date)? onDateTap;
 
-  static const _cellSize = 14.0;
-  static const _cellMargin = 2.0;
+  static const _cellSize = 13.0;
+  static const _cellMargin = 1.5;
+  static const _totalCell = _cellSize + _cellMargin * 2;
   static const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   static const _weekDays = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
 
@@ -28,29 +29,33 @@ class HeatmapWidget extends StatelessWidget {
     final start = DateTime(year, 1, 1);
     final end = DateTime(year, 12, 31);
     final totalDays = end.difference(start).inDays + 1;
-    final startWeekday = start.weekday; // Mon=1 .. Sun=7
+    final startWeekday = start.weekday;
     final gridCols = ((totalDays + startWeekday - 1) / 7).ceil();
     final today = DateTime.now();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Month labels
-        _buildMonthLabels(start, gridCols, startWeekday),
-        const SizedBox(height: 2),
-        // Grid with weekday labels
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildWeekDayLabels(),
-            const SizedBox(width: 4),
-            _buildGrid(start, startWeekday, gridCols, totalDays, today),
-          ],
-        ),
-        const SizedBox(height: 4),
-        _buildLegend(),
-      ],
+    return SizedBox(
+      height: _totalCell * 8 + 20,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildWeekDayLabels(),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildMonthLabels(start, gridCols, startWeekday),
+                  _buildGrid(start, startWeekday, gridCols, totalDays, today),
+                  const SizedBox(height: 2),
+                  _buildLegend(),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -62,26 +67,23 @@ class HeatmapWidget extends StatelessWidget {
       final dayOffset = col * 7 - (startWeekday - 1);
       final date = start.add(Duration(days: dayOffset));
       if (date.year != year) {
-        labels.add(const SizedBox(width: _cellSize + _cellMargin * 2));
+        labels.add(const SizedBox(width: _totalCell));
         continue;
       }
       if (date.month != currentMonth) {
         currentMonth = date.month;
         labels.add(SizedBox(
-          width: _cellSize + _cellMargin * 2,
-          child: Text(_months[date.month - 1], style: const TextStyle(fontSize: 10)),
+          width: _totalCell,
+          child: Text(_months[date.month - 1], style: const TextStyle(fontSize: 9)),
         ));
       } else {
-        labels.add(const SizedBox(width: _cellSize + _cellMargin * 2));
+        labels.add(const SizedBox(width: _totalCell));
       }
     }
 
-    return Padding(
-      padding: EdgeInsets.only(left: 14 * 8 + 4), // offset for weekday labels
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(children: labels),
-      ),
+    return SizedBox(
+      height: 14,
+      child: Row(children: labels),
     );
   }
 
@@ -90,8 +92,9 @@ class HeatmapWidget extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: _weekDays.map((d) {
         return SizedBox(
-          height: _cellSize + _cellMargin * 2,
-          child: Center(child: Text(d, style: const TextStyle(fontSize: 9))),
+          width: 28,
+          height: _totalCell,
+          child: Center(child: Text(d, style: const TextStyle(fontSize: 8))),
         );
       }).toList(),
     );
@@ -99,13 +102,12 @@ class HeatmapWidget extends StatelessWidget {
 
   Widget _buildGrid(DateTime start, int startWeekday, int gridCols, int totalDays, DateTime today) {
     final cols = <Widget>[];
-
     for (int col = 0; col < gridCols; col++) {
       final cells = <Widget>[];
       for (int row = 0; row < 7; row++) {
         final dayIndex = col * 7 + row - (startWeekday - 1);
         if (dayIndex < 0 || dayIndex >= totalDays) {
-          cells.add(const SizedBox(width: _cellSize + _cellMargin * 2, height: _cellSize + _cellMargin * 2));
+          cells.add(const SizedBox(width: _totalCell, height: _totalCell));
           continue;
         }
         final date = start.add(Duration(days: dayIndex));
@@ -120,42 +122,35 @@ class HeatmapWidget extends StatelessWidget {
               width: _cellSize,
               height: _cellSize,
               margin: EdgeInsets.all(_cellMargin),
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(2),
-              ),
+              decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2)),
             ),
           ),
         );
       }
       cols.add(Column(mainAxisSize: MainAxisSize.min, children: cells));
     }
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(mainAxisSize: MainAxisSize.min, children: cols),
-    );
+    return Row(mainAxisSize: MainAxisSize.min, children: cols);
   }
 
   Widget _buildLegend() {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        const Text('Less ', style: TextStyle(fontSize: 10)),
+        const SizedBox(width: 2),
+        const Text('Less ', style: TextStyle(fontSize: 9)),
         _legendCell(Colors.grey.shade200),
         _legendCell(const Color(0xFF9BE9A8)),
         _legendCell(const Color(0xFF40C463)),
         _legendCell(const Color(0xFF30A14E)),
         _legendCell(const Color(0xFF216E39)),
-        const Text(' More', style: TextStyle(fontSize: 10)),
+        const Text(' More', style: TextStyle(fontSize: 9)),
       ],
     );
   }
 
   Widget _legendCell(Color color) {
     return Container(
-      width: 12,
-      height: 12,
+      width: 10,
+      height: 10,
       margin: const EdgeInsets.symmetric(horizontal: 1),
       decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2)),
     );

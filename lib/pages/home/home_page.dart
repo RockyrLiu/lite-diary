@@ -49,7 +49,7 @@ class _CalendarViewPage extends ConsumerWidget {
 
   void _navigateToDate(BuildContext context, DateTime date) {
     final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-    context.go('/content?date=$dateStr');
+    context.go('/content/date/$dateStr');
   }
 
   @override

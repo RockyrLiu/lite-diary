@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' hide isNull, isNotNull, Column;
@@ -24,17 +25,60 @@ class ContentPage extends ConsumerStatefulWidget {
 class _ContentPageState extends ConsumerState<ContentPage> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
+  Timer? _saveTimer;
   DateTime _currentDate = DateTime.now();
   int _currentEntryIndex = 0;
   List<Entry> _currentEntries = [];
   int? _editingEntryId;
   EditorMode _editorMode = EditorMode.preview;
+  bool _hasUnsavedChanges = false;
 
   @override
   void dispose() {
+    _saveTimer?.cancel();
+    if (_hasUnsavedChanges) _saveNow();
     _titleController.dispose();
     _contentController.dispose();
     super.dispose();
+  }
+
+  void _scheduleSave() {
+    _hasUnsavedChanges = true;
+    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (mounted) _saveNow();
+    });
+  }
+
+  Future<void> _saveNow() async {
+    if (!_hasUnsavedChanges) return;
+    final db = ref.read(databaseProvider);
+    final now = DateTime.now();
+    if (_editingEntryId != null) {
+      await db.updateEntry(
+        _editingEntryId!,
+        EntriesCompanion(
+          title: Value(_titleController.text.isEmpty ? null : _titleController.text),
+          content: Value(_contentController.text),
+          updatedAt: Value(now),
+        ),
+      );
+    } else if (_contentController.text.isNotEmpty || _titleController.text.isNotEmpty) {
+      await db.createEntry(
+        EntriesCompanion(
+          title: Value(_titleController.text.isEmpty ? null : _titleController.text),
+          date: Value(_currentDate),
+          content: Value(_contentController.text),
+          groupId: const Value(1),
+          createdAt: Value(now),
+          updatedAt: Value(now),
+        ),
+      );
+    }
+    _hasUnsavedChanges = false;
+    ref.invalidate(entriesByDateProvider(_currentDate));
+    ref.invalidate(allEntriesProvider);
+    ref.invalidate(calendarDateCountsProvider);
   }
 
   List<DateTime> _getAllEntryDates() {
@@ -69,14 +113,17 @@ class _ContentPageState extends ConsumerState<ContentPage> {
       _titleController.text = entry.title ?? '';
       _contentController.text = entry.content;
       _editingEntryId = entry.id;
+      _hasUnsavedChanges = false;
     } else {
       _titleController.clear();
       _contentController.clear();
       _editingEntryId = null;
+      _hasUnsavedChanges = false;
     }
   }
 
   void _goToNextDate() {
+    _saveNow();
     final dates = _getAllEntryDates();
     final currentKey = DateTime(_currentDate.year, _currentDate.month, _currentDate.day);
     final nextDate = dates.firstWhere((d) => d.isAfter(currentKey), orElse: () => _currentDate);
@@ -84,6 +131,7 @@ class _ContentPageState extends ConsumerState<ContentPage> {
   }
 
   void _goToPreviousDate() {
+    _saveNow();
     final dates = _getAllEntryDates();
     final currentKey = DateTime(_currentDate.year, _currentDate.month, _currentDate.day);
     final prevDate = dates.reversed.firstWhere((d) => d.isBefore(currentKey), orElse: () => _currentDate);
@@ -91,6 +139,7 @@ class _ContentPageState extends ConsumerState<ContentPage> {
   }
 
   void _goToNextEntry() {
+    _saveNow();
     if (_currentEntryIndex < _currentEntries.length - 1) {
       setState(() {
         _currentEntryIndex++;
@@ -100,6 +149,7 @@ class _ContentPageState extends ConsumerState<ContentPage> {
   }
 
   void _goToPreviousEntry() {
+    _saveNow();
     if (_currentEntryIndex > 0) {
       setState(() {
         _currentEntryIndex--;
@@ -108,41 +158,13 @@ class _ContentPageState extends ConsumerState<ContentPage> {
     }
   }
 
-  Future<void> _saveEntry() async {
-    final db = ref.read(databaseProvider);
-    final now = DateTime.now();
-    if (_editingEntryId != null) {
-      await db.updateEntry(
-        _editingEntryId!,
-        EntriesCompanion(
-          title: Value(_titleController.text.isEmpty ? null : _titleController.text),
-          content: Value(_contentController.text),
-          updatedAt: Value(now),
-        ),
-      );
-    } else {
-      await db.createEntry(
-        EntriesCompanion(
-          title: Value(_titleController.text.isEmpty ? null : _titleController.text),
-          date: Value(_currentDate),
-          content: Value(_contentController.text),
-          groupId: const Value(1),
-          createdAt: Value(now),
-          updatedAt: Value(now),
-        ),
-      );
-    }
-    ref.invalidate(entriesByDateProvider(_currentDate));
-    ref.invalidate(allEntriesProvider);
-    ref.invalidate(calendarDateCountsProvider);
-    _loadEntriesForDate(_currentDate);
-  }
-
   void _startNewEntry() {
+    _saveNow();
     setState(() {
       _titleController.clear();
       _contentController.clear();
       _editingEntryId = null;
+      _hasUnsavedChanges = false;
     });
   }
 
@@ -173,6 +195,10 @@ class _ContentPageState extends ConsumerState<ContentPage> {
     }
   }
 
+  void _onContentChanged(String value) {
+    _scheduleSave();
+  }
+
   @override
   Widget build(BuildContext context) {
     final dateStr = '${_currentDate.year}年${_currentDate.month}月${_currentDate.day}日';
@@ -196,7 +222,6 @@ class _ContentPageState extends ConsumerState<ContentPage> {
             icon: Icon(_editorMode == EditorMode.source ? Icons.visibility : Icons.edit),
             label: Text(_editorMode == EditorMode.source ? '预览' : '编辑'),
           ),
-          IconButton(icon: const Icon(Icons.save), onPressed: _saveEntry),
           if (_currentEntries.length > 1) ...[
             IconButton(icon: const Icon(Icons.arrow_upward), onPressed: _goToPreviousEntry),
             IconButton(icon: const Icon(Icons.arrow_downward), onPressed: _goToNextEntry),
@@ -219,6 +244,7 @@ class _ContentPageState extends ConsumerState<ContentPage> {
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: TextField(
                 controller: _titleController,
+                onChanged: (_) => _scheduleSave(),
                 decoration: const InputDecoration(
                   hintText: '标题（可选）',
                   border: InputBorder.none,
@@ -239,10 +265,10 @@ class _ContentPageState extends ConsumerState<ContentPage> {
                     _editorMode = _editorMode == EditorMode.source ? EditorMode.preview : EditorMode.source;
                   });
                 },
+                onChanged: _onContentChanged,
                 onInsertImage: _editingEntryId != null
                     ? () async {
-                        final imageService = ImageService();
-                        return imageService.pickAndSaveImage(ref, _editingEntryId!);
+                        return ImageService().pickAndSaveImage(ref, _editingEntryId!);
                       }
                     : null,
               ),
