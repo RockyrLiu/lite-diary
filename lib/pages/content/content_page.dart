@@ -7,9 +7,11 @@ import '../../database/database.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/calendar_data_provider.dart';
 import '../../providers/entry_provider.dart';
+import '../../providers/group_provider.dart';
 import '../../widgets/markdown_editor.dart';
 import '../../widgets/tag_editor.dart';
 import '../../services/image_service.dart';
+import '../../services/rendering_settings.dart';
 
 class ContentPage extends ConsumerStatefulWidget {
   final int? entryId;
@@ -23,21 +25,30 @@ class ContentPage extends ConsumerStatefulWidget {
 }
 
 class _ContentPageState extends ConsumerState<ContentPage> {
-  final TextEditingController _titleController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
   Timer? _saveTimer;
   DateTime _currentDate = DateTime.now();
   int _currentEntryIndex = 0;
   List<Entry> _currentEntries = [];
   int? _editingEntryId;
+  int _currentGroupId = 1; // 默认日记分组
   EditorMode _editorMode = EditorMode.preview;
   bool _hasUnsavedChanges = false;
+
+  /// 从正文首行提取标题：若以 # 开头且非空，则截取标题；否则返回 null
+  String? _extractTitle(String content) {
+    final firstLine = content.split('\n').first.trim();
+    if (firstLine.startsWith('#') && firstLine.length > 1) {
+      final title = firstLine.replaceFirst(RegExp(r'^#+\s*'), '');
+      return title.isEmpty ? null : title;
+    }
+    return null;
+  }
 
   @override
   void dispose() {
     _saveTimer?.cancel();
     if (_hasUnsavedChanges) _saveNow();
-    _titleController.dispose();
     _contentController.dispose();
     super.dispose();
   }
@@ -52,28 +63,35 @@ class _ContentPageState extends ConsumerState<ContentPage> {
 
   Future<void> _saveNow() async {
     if (!_hasUnsavedChanges) return;
+    final content = _contentController.text.trim();
+    if (content.isEmpty) {
+      _hasUnsavedChanges = false;
+      return;
+    }
+    final title = _extractTitle(content);
     final db = ref.read(databaseProvider);
     final now = DateTime.now();
     if (_editingEntryId != null) {
       await db.updateEntry(
         _editingEntryId!,
         EntriesCompanion(
-          title: Value(_titleController.text.isEmpty ? null : _titleController.text),
-          content: Value(_contentController.text),
+          title: Value(title),
+          content: Value(content),
           updatedAt: Value(now),
         ),
       );
-    } else if (_contentController.text.isNotEmpty || _titleController.text.isNotEmpty) {
-      await db.createEntry(
+    } else {
+      final newId = await db.createEntry(
         EntriesCompanion(
-          title: Value(_titleController.text.isEmpty ? null : _titleController.text),
+          title: Value(title),
           date: Value(_currentDate),
-          content: Value(_contentController.text),
-          groupId: const Value(1),
+          content: Value(content),
+          groupId: Value(_currentGroupId),
           createdAt: Value(now),
           updatedAt: Value(now),
         ),
       );
+      if (mounted) setState(() => _editingEntryId = newId);
     }
     _hasUnsavedChanges = false;
     ref.invalidate(entriesByDateProvider(_currentDate));
@@ -110,12 +128,11 @@ class _ContentPageState extends ConsumerState<ContentPage> {
   void _loadCurrentEntry() {
     if (_currentEntries.isNotEmpty && _currentEntryIndex < _currentEntries.length) {
       final entry = _currentEntries[_currentEntryIndex];
-      _titleController.text = entry.title ?? '';
       _contentController.text = entry.content;
       _editingEntryId = entry.id;
+      _currentGroupId = entry.groupId;
       _hasUnsavedChanges = false;
     } else {
-      _titleController.clear();
       _contentController.clear();
       _editingEntryId = null;
       _hasUnsavedChanges = false;
@@ -161,11 +178,42 @@ class _ContentPageState extends ConsumerState<ContentPage> {
   void _startNewEntry() {
     _saveNow();
     setState(() {
-      _titleController.clear();
       _contentController.clear();
       _editingEntryId = null;
       _hasUnsavedChanges = false;
     });
+  }
+
+  Future<void> _pickGroup() async {
+    final groupsAsync = ref.read(allGroupsProvider);
+    final groups = groupsAsync.valueOrNull ?? [];
+    final selected = await showModalBottomSheet<int>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(padding: EdgeInsets.all(12), child: Text('选择分组', style: TextStyle(fontWeight: FontWeight.bold))),
+            ...groups.map((g) => ListTile(
+              leading: Icon(Icons.folder, color: _currentGroupId == g.id ? Colors.teal : null),
+              title: Text(g.name),
+              trailing: _currentGroupId == g.id ? const Icon(Icons.check, color: Colors.teal) : null,
+              onTap: () => Navigator.pop(ctx, g.id),
+            )),
+          ],
+        ),
+      ),
+    );
+    if (selected != null && selected != _currentGroupId) {
+      setState(() => _currentGroupId = selected);
+      if (_editingEntryId != null) {
+        await ref.read(databaseProvider).updateEntry(
+          _editingEntryId!,
+          EntriesCompanion(groupId: Value(selected), updatedAt: Value(DateTime.now())),
+        );
+        ref.invalidate(allEntriesProvider);
+      }
+    }
   }
 
   @override
@@ -177,6 +225,7 @@ class _ContentPageState extends ConsumerState<ContentPage> {
     if (widget.entryId != null) {
       ref.read(entryByIdProvider(widget.entryId!)).whenData((entry) {
         if (entry != null && mounted) {
+          _currentGroupId = entry.groupId;
           final date = DateTime(entry.date.year, entry.date.month, entry.date.day);
           _loadEntriesForDate(date);
           ref.read(entriesByDateProvider(date)).whenData((entries) {
@@ -202,6 +251,7 @@ class _ContentPageState extends ConsumerState<ContentPage> {
   @override
   Widget build(BuildContext context) {
     final dateStr = '${_currentDate.year}年${_currentDate.month}月${_currentDate.day}日';
+    final renderSettings = ref.watch(renderingSettingsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -213,6 +263,7 @@ class _ContentPageState extends ConsumerState<ContentPage> {
           ],
         ),
         actions: [
+          IconButton(icon: const Icon(Icons.folder), tooltip: '分组', onPressed: _pickGroup),
           TextButton.icon(
             onPressed: () {
               setState(() {
@@ -240,19 +291,6 @@ class _ContentPageState extends ConsumerState<ContentPage> {
         },
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: TextField(
-                controller: _titleController,
-                onChanged: (_) => _scheduleSave(),
-                decoration: const InputDecoration(
-                  hintText: '标题（可选）',
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(vertical: 8),
-                ),
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-            ),
             if (_editingEntryId != null)
               TagEditor(key: ValueKey(_editingEntryId), entryId: _editingEntryId!),
             const Divider(height: 1),
@@ -260,6 +298,8 @@ class _ContentPageState extends ConsumerState<ContentPage> {
               child: MarkdownEditor(
                 controller: _contentController,
                 externalMode: _editorMode,
+                titleSize: renderSettings.titleSize,
+                bodySize: renderSettings.bodySize,
                 onToggleMode: () {
                   setState(() {
                     _editorMode = _editorMode == EditorMode.source ? EditorMode.preview : EditorMode.source;

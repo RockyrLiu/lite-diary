@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../services/theme_service.dart';
+import '../../services/rendering_settings.dart';
 
 final tabVisibilityProvider = StateProvider<Map<String, bool>>((ref) {
   return {'首页': true, '内容': true, 'LLM': true, '设置': true};
@@ -50,6 +51,7 @@ class _DisplayPageState extends ConsumerState<DisplayPage> {
   @override
   Widget build(BuildContext context) {
     final currentMode = ref.watch(themeModeProvider);
+    final renderSettings = ref.watch(renderingSettingsProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('显示控制')),
@@ -66,6 +68,44 @@ class _DisplayPageState extends ConsumerState<DisplayPage> {
             },
           ),
           const Divider(),
+          const _SectionHeader('渲染'),
+          ListTile(
+            title: const Text('标题字号'),
+            subtitle: Text('${renderSettings.titleSize.toInt()} px'),
+            trailing: SizedBox(
+              width: 160,
+              child: Slider(
+                value: renderSettings.titleSize,
+                min: 16,
+                max: 36,
+                divisions: 20,
+                onChanged: (v) {
+                  final s = renderSettings.copyWith(titleSize: v);
+                  ref.read(renderingSettingsProvider.notifier).state = s;
+                  saveRenderingSettings(s);
+                },
+              ),
+            ),
+          ),
+          ListTile(
+            title: const Text('正文字号'),
+            subtitle: Text('${renderSettings.bodySize.toInt()} px'),
+            trailing: SizedBox(
+              width: 160,
+              child: Slider(
+                value: renderSettings.bodySize,
+                min: 12,
+                max: 28,
+                divisions: 16,
+                onChanged: (v) {
+                  final s = renderSettings.copyWith(bodySize: v);
+                  ref.read(renderingSettingsProvider.notifier).state = s;
+                  saveRenderingSettings(s);
+                },
+              ),
+            ),
+          ),
+          const Divider(),
           const _SectionHeader('底部导航栏'),
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -73,26 +113,10 @@ class _DisplayPageState extends ConsumerState<DisplayPage> {
               style: TextStyle(fontSize: 12, color: Colors.grey)),
           ),
           if (_loaded) ...[
-            SwitchListTile(
-              title: const Text('首页'),
-              value: _tabs['首页'] ?? true,
-              onChanged: (v) => _setTab('首页', v),
-            ),
-            SwitchListTile(
-              title: const Text('内容'),
-              value: _tabs['内容'] ?? true,
-              onChanged: (v) => _setTab('内容', v),
-            ),
-            SwitchListTile(
-              title: const Text('LLM'),
-              value: _tabs['LLM'] ?? true,
-              onChanged: (v) => _setTab('LLM', v),
-            ),
-            SwitchListTile(
-              title: const Text('设置'),
-              value: _tabs['设置'] ?? true,
-              onChanged: (v) => _setTab('设置', v),
-            ),
+            SwitchListTile(title: const Text('首页'), value: _tabs['首页'] ?? true, onChanged: (v) => _setTab('首页', v)),
+            SwitchListTile(title: const Text('内容'), value: _tabs['内容'] ?? true, onChanged: (v) => _setTab('内容', v)),
+            SwitchListTile(title: const Text('LLM'), value: _tabs['LLM'] ?? true, onChanged: (v) => _setTab('LLM', v)),
+            SwitchListTile(title: const Text('设置'), value: _tabs['设置'] ?? true, onChanged: (v) => _setTab('设置', v)),
           ],
         ],
       ),

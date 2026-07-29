@@ -10,6 +10,8 @@ class MarkdownEditor extends StatefulWidget {
   final Future<String?> Function()? onInsertImage;
   final EditorMode? externalMode;
   final VoidCallback? onToggleMode;
+  final double titleSize;
+  final double bodySize;
 
   const MarkdownEditor({
     super.key,
@@ -19,6 +21,8 @@ class MarkdownEditor extends StatefulWidget {
     this.onInsertImage,
     this.externalMode,
     this.onToggleMode,
+    this.titleSize = 24,
+    this.bodySize = 16,
   });
 
   @override
@@ -188,6 +192,12 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
       data: _controller.text,
       selectable: true,
       padding: const EdgeInsets.all(12),
+      styleSheet: MarkdownStyleSheet(
+        h1: TextStyle(fontSize: widget.titleSize, fontWeight: FontWeight.bold),
+        h2: TextStyle(fontSize: widget.titleSize - 2, fontWeight: FontWeight.bold),
+        h3: TextStyle(fontSize: widget.titleSize - 4, fontWeight: FontWeight.bold),
+        p: TextStyle(fontSize: widget.bodySize, height: 1.6),
+      ),
     );
   }
 }

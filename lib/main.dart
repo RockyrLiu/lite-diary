@@ -2,15 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'router.dart';
+import 'services/rendering_settings.dart';
 import 'services/theme_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final savedMode = await AppTheme.loadThemeMode();
+  final renderSettings = await loadRenderingSettings();
   await reloadRouter();
 
   runApp(ProviderScope(
-    overrides: [themeModeProvider.overrideWith((ref) => savedMode)],
+    overrides: [
+      themeModeProvider.overrideWith((ref) => savedMode),
+      renderingSettingsProvider.overrideWith((ref) => renderSettings),
+    ],
     child: const DiaryLiteApp(),
   ));
 }
