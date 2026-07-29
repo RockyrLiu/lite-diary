@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../database/database.dart';
 import '../../providers/entry_provider.dart';
@@ -18,14 +19,21 @@ class _OnThisDayPageState extends ConsumerState<OnThisDayPage> {
   int _currentIndex = 0;
   List<Entry> _entries = [];
 
-  void _loadEntries() {
+  void _loadEntries() async {
+    final prefs = await SharedPreferences.getInstance();
+    final selectedIds = (prefs.getStringList('on_this_day_groups') ?? [])
+        .map(int.parse)
+        .toSet();
+
+    if (!mounted) return;
     final allAsync = ref.read(allEntriesProvider);
     allAsync.whenData((entries) {
       final today = DateTime.now();
       final matching = entries.where((e) {
-        return e.date.month == today.month &&
-            e.date.day == today.day &&
-            e.date.year != today.year;
+        if (e.date.month != today.month || e.date.day != today.day) return false;
+        if (e.date.year == today.year) return false;
+        if (selectedIds.isNotEmpty && !selectedIds.contains(e.groupId)) return false;
+        return true;
       }).toList();
       matching.sort((a, b) => b.date.compareTo(a.date));
 

@@ -10,6 +10,7 @@ import 'pages/settings/settings_page.dart';
 import 'pages/settings/export_page.dart';
 import 'pages/settings/about_page.dart';
 import 'pages/settings/display_page.dart';
+import 'pages/settings/on_this_day_filter_page.dart';
 import 'services/tab_notifier.dart';
 
 GoRouter _buildRouter({
@@ -60,6 +61,7 @@ GoRouter _buildRouter({
         GoRoute(path: 'llm', builder: (context, state) => const SettingsPage()),
         GoRoute(path: 'about', builder: (context, state) => const AboutPage()),
         GoRoute(path: 'export', builder: (context, state) => const ExportPage()),
+        GoRoute(path: 'filters', builder: (context, state) => const OnThisDayFilterPage()),
       ]),
     ]));
     navItems.add(const BottomNavigationBarItem(icon: Icon(Icons.settings), label: '设置'));

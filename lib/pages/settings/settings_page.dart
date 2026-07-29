@@ -19,6 +19,13 @@ class SettingsPage extends StatelessWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/display'),
           ),
+          ListTile(
+            leading: const Icon(Icons.event),
+            title: const Text('那年今日过滤'),
+            subtitle: const Text('设置回顾范围'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/filters'),
+          ),
           const SectionHeader('导出', color: Colors.teal),
           ListTile(
             leading: const Icon(Icons.file_download),
@@ -46,13 +53,6 @@ class SettingsPage extends StatelessWidget {
             onTap: () => context.push('/settings/llm'),
           ),
           const SectionHeader('其他', color: Colors.teal),
-          ListTile(
-            leading: const Icon(Icons.event),
-            title: const Text('那年今日过滤'),
-            subtitle: const Text('设置回顾范围'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {},
-          ),
           ListTile(
             leading: const Icon(Icons.info),
             title: const Text('关于'),
