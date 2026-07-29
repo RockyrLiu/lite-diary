@@ -7,6 +7,7 @@ import 'services/theme_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final savedMode = await AppTheme.loadThemeMode();
+  await reloadRouter();
 
   runApp(ProviderScope(
     overrides: [themeModeProvider.overrideWith((ref) => savedMode)],
