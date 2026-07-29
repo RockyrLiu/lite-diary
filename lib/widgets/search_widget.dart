@@ -15,6 +15,7 @@ class SearchWidget extends ConsumerStatefulWidget {
 class _SearchWidgetState extends ConsumerState<SearchWidget> {
   final TextEditingController _controller = TextEditingController();
   List<Entry> _allEntries = [];
+  Map<int, List<String>> _entryTags = {};
   List<Entry> _results = [];
   bool _open = false;
 
@@ -26,6 +27,7 @@ class _SearchWidgetState extends ConsumerState<SearchWidget> {
   Future<void> _ensureLoaded() async {
     if (_allEntries.isNotEmpty) return;
     _allEntries = await db.getAllEntries();
+    _entryTags = await db.getEntryTagsMap();
     if (mounted) setState(() {});
   }
 
@@ -34,9 +36,17 @@ class _SearchWidgetState extends ConsumerState<SearchWidget> {
     final lower = q.toLowerCase();
     setState(() {
       _results = _allEntries.where((e) =>
-        (e.title?.toLowerCase().contains(lower) ?? false) || e.content.toLowerCase().contains(lower)
+        (e.title?.toLowerCase().contains(lower) ?? false) ||
+        e.content.toLowerCase().contains(lower) ||
+        (_entryTags[e.id]?.any((t) => t.toLowerCase().contains(lower)) ?? false)
       ).toList();
     });
+  }
+
+  void _onSubmitted(String q) {
+    if (q.trim().isEmpty) return;
+    _onChanged(q);
+    if (_results.isNotEmpty) _showResults();
   }
 
   void _close() {
@@ -53,12 +63,11 @@ class _SearchWidgetState extends ConsumerState<SearchWidget> {
     return Expanded(
       child: Row(children: [
         Expanded(child: TextField(
-          controller: _controller, autofocus: true, onChanged: _onChanged,
+          controller: _controller, autofocus: true,
+          onChanged: _onChanged, onSubmitted: _onSubmitted,
           decoration: const InputDecoration(hintText: '搜索...', border: InputBorder.none),
         )),
         IconButton(icon: const Icon(Icons.close), onPressed: _close),
-        if (_results.isNotEmpty)
-          IconButton(icon: const Icon(Icons.list), tooltip: '${_results.length} 条结果', onPressed: _showResults),
       ]),
     );
   }

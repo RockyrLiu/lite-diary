@@ -8,8 +8,9 @@ import '../providers/tag_provider.dart';
 
 class TagEditor extends ConsumerStatefulWidget {
   final int entryId;
+  final bool readOnly;
 
-  const TagEditor({super.key, required this.entryId});
+  const TagEditor({super.key, required this.entryId, this.readOnly = false});
 
   @override
   ConsumerState<TagEditor> createState() => _TagEditorState();
@@ -83,8 +84,8 @@ class _TagEditorState extends ConsumerState<TagEditor> {
           child: Wrap(spacing: 6, runSpacing: 4, children: _entryTags.map((tag) {
             return Chip(
               label: Text(tag.name, style: const TextStyle(fontSize: 12)),
-              deleteIcon: const Icon(Icons.close, size: 16),
-              onDeleted: () => _removeTag(tag),
+              deleteIcon: widget.readOnly ? null : const Icon(Icons.close, size: 16),
+              onDeleted: widget.readOnly ? null : () => _removeTag(tag),
               backgroundColor: colorScheme.primaryContainer.withAlpha(180),
               side: BorderSide.none,
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -92,6 +93,7 @@ class _TagEditorState extends ConsumerState<TagEditor> {
             );
           }).toList()),
         ),
+      if (!widget.readOnly) ...[
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
         child: TextField(
@@ -123,6 +125,7 @@ class _TagEditorState extends ConsumerState<TagEditor> {
             },
           ),
         ),
+      ],
     ]);
   }
 }

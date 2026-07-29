@@ -83,18 +83,7 @@ class _OnThisDayPageState extends ConsumerState<OnThisDayPage> {
                     ),
                   ),
                 Expanded(
-                  child: GestureDetector(
-                    onHorizontalDragEnd: (details) {
-                      if (details.primaryVelocity != null) {
-                        if (details.primaryVelocity! < -50) {
-                          _nextEntry();
-                        } else if (details.primaryVelocity! > 50) {
-                          _previousEntry();
-                        }
-                      }
-                    },
-                    child: _buildEntryView(_entries[_currentIndex]),
-                  ),
+                  child: _buildEntryView(_entries[_currentIndex]),
                 ),
               ],
             ),

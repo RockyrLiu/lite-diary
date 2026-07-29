@@ -26,10 +26,10 @@ class SettingsPage extends StatelessWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/encryption'),
           ),
-          const SectionHeader('数据', color: Colors.teal),
+          const SectionHeader('导出', color: Colors.teal),
           ListTile(
             leading: const Icon(Icons.file_download),
-            title: const Text('导出数据'),
+            title: const Text('导出'),
             subtitle: const Text('导出日记、诗稿等'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/export'),

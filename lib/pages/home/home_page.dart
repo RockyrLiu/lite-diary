@@ -26,12 +26,12 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(initialPage: _kPageMultiplier * 3 + 1);
+    _pageController = PageController(initialPage: _kPageMultiplier * 3);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final order = ref.read(homePageOrderProvider);
       _lastOrder = order;
-      _pageController.jumpToPage(_kPageMultiplier * 3 + order[0]);
+      _pageController.jumpToPage(_kPageMultiplier * 3);
     });
   }
 
@@ -48,7 +48,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     if (pageOrder != _lastOrder && _pageController.hasClients) {
       _lastOrder = pageOrder;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _pageController.jumpToPage(_kPageMultiplier * 3 + pageOrder[0]);
+        if (mounted) _pageController.jumpToPage(_kPageMultiplier * 3);
       });
     }
 

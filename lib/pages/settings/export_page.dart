@@ -1,5 +1,10 @@
+import 'dart:io';
+
+import 'package:archive/archive_io.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../database/database.dart';
 import '../../providers/database_provider.dart';
@@ -13,37 +18,268 @@ class ExportPage extends ConsumerStatefulWidget {
 }
 
 class _ExportPageState extends ConsumerState<ExportPage> {
-  String? _message;
+  void _showSnackBar(String message, {bool error = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(message),
+      backgroundColor: error ? Colors.red.shade700 : null,
+      duration: const Duration(seconds: 3),
+    ));
+  }
+
+  // ── Date range dialog ──
+
+  Future<_DateRange?> _pickDateRange() async {
+    final startCtrl = TextEditingController(
+        text: '${DateTime.now().year}-01-01');
+    final endCtrl = TextEditingController(
+        text: _dateStr(DateTime.now()));
+    bool allTime = false;
+    String? errorText;
+
+    bool parseDate(String s) {
+      final parts = s.split('-');
+      if (parts.length != 3) return false;
+      final y = int.tryParse(parts[0]), m = int.tryParse(parts[1]), d = int.tryParse(parts[2]);
+      return y != null && m != null && d != null && m >= 1 && m <= 12 && d >= 1 && d <= 31;
+    }
+
+    String? validate() {
+      if (allTime) return null;
+      final start = startCtrl.text;
+      final end = endCtrl.text;
+      if (start.isEmpty || end.isEmpty) return '请输入日期';
+      if (!parseDate(start)) return '起始日期格式错误';
+      if (!parseDate(end)) return '结束日期格式错误';
+      final partsS = start.split('-');
+      final partsE = end.split('-');
+      final s = DateTime(int.parse(partsS[0]), int.parse(partsS[1]), int.parse(partsS[2]));
+      final e = DateTime(int.parse(partsE[0]), int.parse(partsE[1]), int.parse(partsE[2]));
+      if (s.isAfter(e)) return '起始日期不能晚于结束日期';
+      return null;
+    }
+
+    final picked = await showDialog<_DateRange>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return AlertDialog(
+            title: const Text('选择导出时间'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CheckboxListTile(
+                  value: allTime,
+                  onChanged: (v) {
+                    setDialogState(() {
+                      allTime = v ?? false;
+                      errorText = null;
+                    });
+                  },
+                  title: const Text('所有时间'),
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: startCtrl,
+                  enabled: !allTime,
+                  decoration: const InputDecoration(
+                    labelText: '起始日期',
+                    hintText: '2024-01-01',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: endCtrl,
+                  enabled: !allTime,
+                  decoration: const InputDecoration(
+                    labelText: '结束日期',
+                    hintText: '2026-07-29',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+                if (errorText != null) ...[
+                  const SizedBox(height: 8),
+                  Text(errorText!, style: TextStyle(color: Colors.red.shade700, fontSize: 13)),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('取消')),
+              FilledButton(
+                onPressed: () {
+                  final err = validate();
+                  if (err != null) {
+                    setDialogState(() => errorText = err);
+                    return;
+                  }
+                  if (allTime) {
+                    Navigator.pop(ctx, _DateRange.all());
+                  } else {
+                    final s = startCtrl.text.split('-');
+                    final e = endCtrl.text.split('-');
+                    Navigator.pop(ctx, _DateRange(
+                      start: DateTime(int.parse(s[0]), int.parse(s[1]), int.parse(s[2])),
+                      end: DateTime(int.parse(e[0]), int.parse(e[1]), int.parse(e[2])),
+                    ));
+                  }
+                },
+                child: const Text('确定'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    return picked;
+  }
+
+  // ── Group picker ──
+
+  Future<Group?> _pickGroup() async {
+    final db = ref.read(databaseProvider);
+    final groups = await db.getAllGroups();
+    if (!mounted) return null;
+
+    return showDialog<Group>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('选择分组'),
+        children: groups
+            .map((g) => SimpleDialogOption(
+                  onPressed: () => Navigator.pop(ctx, g),
+                  child: Text(g.name),
+                ))
+            .toList(),
+      ),
+    );
+  }
+
+  // ── Image helpers ──
+
+  Future<List<_ImageRecord>> _collectImages(List<Entry> entries) async {
+    final db = ref.read(databaseProvider);
+    final appDir = await getApplicationDocumentsDirectory();
+    final records = <_ImageRecord>[];
+
+    for (final entry in entries) {
+      final images = await (db.select(db.images)
+            ..where((i) => i.entryId.equals(entry.id)))
+          .get();
+      for (final image in images) {
+        final absPath = '${appDir.path}/${image.filePath}';
+        if (await File(absPath).exists()) {
+          records.add(_ImageRecord(
+            sourceAbsPath: absPath,
+            destRelPath: image.filePath,
+            entryId: entry.id,
+          ));
+        }
+      }
+    }
+    return records;
+  }
+
+  String _replaceImagePaths(String content, List<_ImageRecord> records, int entryId) {
+    var result = content;
+    for (final r in records.where((r) => r.entryId == entryId)) {
+      result = result.replaceAll(r.sourceAbsPath, r.destRelPath);
+      result = result.replaceAll(r.sourceAbsPath.replaceAll('/', '\\'), r.destRelPath);
+    }
+    return result;
+  }
+
+  Future<String> _buildZip(
+      String mdFileName, StringBuffer mdContent, List<_ImageRecord> imageRecords) async {
+    final tempDir = await Directory.systemTemp.createTemp('diary_export_');
+    final mdFile = File('${tempDir.path}/$mdFileName');
+    await mdFile.writeAsString(mdContent.toString());
+
+    for (final r in imageRecords) {
+      final destFile = File('${tempDir.path}/${r.destRelPath}');
+      await destFile.parent.create(recursive: true);
+      await File(r.sourceAbsPath).copy(destFile.path);
+    }
+
+    final zipPath = '${tempDir.path}/$mdFileName.zip';
+    final encoder = ZipFileEncoder()..create(zipPath);
+    await encoder.addFile(mdFile, mdFileName);
+    for (final r in imageRecords) {
+      await encoder.addFile(File('${tempDir.path}/${r.destRelPath}'), r.destRelPath);
+    }
+    await encoder.close();
+
+    return zipPath;
+  }
+
+  // ── Export: 日记 ──
+
+  Future<void> _exportDiary() async {
+    final range = await _pickDateRange();
+    if (range == null) return;
+
+    final db = ref.read(databaseProvider);
+    final groups = await db.getAllGroups();
+    Group? diaryGroup;
+    try {
+      diaryGroup = groups.firstWhere((g) => g.name == '日记');
+    } catch (_) {
+      _showSnackBar('未找到"日记"分组', error: true);
+      return;
+    }
+
+    final allEntries = await db.getEntriesByGroup(diaryGroup.id);
+    final entries = range.allTime
+        ? allEntries
+        : allEntries.where((e) => _inRange(e.date, range)).toList();
+    if (entries.isEmpty) { _showSnackBar('未找到符合条件的日记', error: true); return; }
+    entries.sort((a, b) => a.date.compareTo(b.date));
+
+    final tagMap = await db.getEntryTagsMap();
+
+    final nameSuffix = range.allTime ? '全部' : '${_dateStr(range.start)}_${_dateStr(range.end)}';
+    await _doEntriesZip(entries, tagMap, '日记_$nameSuffix.md');
+  }
+
+  // ── Export: 诗稿 ──
 
   Future<void> _exportPoetry() async {
+    final range = await _pickDateRange();
+    if (range == null) return;
+
     final db = ref.read(databaseProvider);
     final groups = await db.getAllGroups();
     Group? poetryGroup;
     try {
       poetryGroup = groups.firstWhere((g) => g.name == '诗词');
     } catch (_) {
-      if (!mounted) return;
-      setState(() => _message = '未找到"诗词"分组，请先创建');
+      _showSnackBar('未找到"诗词"分组，请先创建', error: true);
       return;
     }
 
-    final entries = await db.getEntriesByGroup(poetryGroup.id);
-    if (entries.isEmpty) {
-      if (!mounted) return;
-      setState(() => _message = '"诗词"分组下暂无日记');
-      return;
-    }
-
+    final allEntries = await db.getEntriesByGroup(poetryGroup.id);
+    final entries = range.allTime
+        ? allEntries
+        : allEntries.where((e) => _inRange(e.date, range)).toList();
+    if (entries.isEmpty) { _showSnackBar('未找到符合条件的诗稿', error: true); return; }
     entries.sort((a, b) => a.date.compareTo(b.date));
 
+    final imageRecords = await _collectImages(entries);
     final firstYear = entries.first.date.year;
     final ganZhiYear = LunarService.ganZhiYear(firstYear);
+    final nameSuffix = range.allTime ? '' : '_${_dateStr(range.start)}_${_dateStr(range.end)}';
+    final fileName = '$ganZhiYear诗稿$nameSuffix.md';
 
     final buffer = StringBuffer();
     buffer.writeln('# $ganZhiYear诗稿');
     buffer.writeln();
 
-    // 目录
     buffer.writeln('## 目录');
     buffer.writeln();
     for (final entry in entries) {
@@ -53,79 +289,198 @@ class _ExportPageState extends ConsumerState<ExportPage> {
     }
     buffer.writeln();
 
-    // 正文
     for (final entry in entries) {
       final title = entry.title ?? '无标题';
       final lunar = LunarService.lunarDay(entry.date);
+      final content = _replaceImagePaths(entry.content, imageRecords, entry.id);
       buffer.writeln('## $title  $lunar');
       buffer.writeln();
-      buffer.writeln(entry.content);
+      buffer.writeln(content);
       buffer.writeln();
     }
 
-    if (!mounted) return;
-    setState(() => _message = '诗稿已生成：\n\n${buffer.toString()}');
+    final zipPath = await _buildZip(fileName, buffer, imageRecords);
+    if (mounted) {
+      await SharePlus.instance.share(ShareParams(
+        files: [XFile(zipPath)], subject: fileName, text: fileName,
+      ));
+      _showSnackBar('诗稿已生成');
+    }
   }
 
-  Future<void> _exportAll() async {
-    final db = ref.read(databaseProvider);
-    final entries = await db.getAllEntries();
-    if (entries.isEmpty) {
-      if (!mounted) return;
-      setState(() => _message = '暂无日记可导出');
-      return;
-    }
+  // ── Export: 分组 ──
 
+  Future<void> _exportByGroup() async {
+    final group = await _pickGroup();
+    if (group == null) return;
+
+    final range = await _pickDateRange();
+    if (range == null) return;
+
+    final db = ref.read(databaseProvider);
+    final allEntries = await db.getEntriesByGroup(group.id);
+    final entries = range.allTime
+        ? allEntries
+        : allEntries.where((e) => _inRange(e.date, range)).toList();
+    if (entries.isEmpty) { _showSnackBar('未找到符合条件的"${group.name}"分组日记', error: true); return; }
     entries.sort((a, b) => a.date.compareTo(b.date));
 
+    final tagMap = await db.getEntryTagsMap();
+
+    final nameSuffix = range.allTime ? '全部' : '${_dateStr(range.start)}_${_dateStr(range.end)}';
+    await _doEntriesZip(entries, tagMap, '${group.name}_$nameSuffix.md');
+  }
+
+  // ── Export: 所有数据 ──
+
+  Future<void> _exportAll() async {
+    final range = await _pickDateRange();
+    if (range == null) return;
+
+    final db = ref.read(databaseProvider);
+    final entries = await db.getAllEntries();
+    final filtered = range.allTime
+        ? entries
+        : entries.where((e) => _inRange(e.date, range)).toList();
+    if (filtered.isEmpty) { _showSnackBar('未找到符合条件的数据', error: true); return; }
+    filtered.sort((a, b) => a.date.compareTo(b.date));
+
+    final tagMap = await db.getEntryTagsMap();
+
+    final nameSuffix = range.allTime ? '全部' : '${_dateStr(range.start)}_${_dateStr(range.end)}';
+    await _doEntriesZip(filtered, tagMap, '全部日记_$nameSuffix.md');
+  }
+
+  // ── Common: entries → zip → share ──
+
+  Future<void> _doEntriesZip(List<Entry> entries, Map<int, List<String>> tagMap, String fileName) async {
+    final imageRecords = await _collectImages(entries);
+
     final buffer = StringBuffer();
-    for (final entry in entries) {
-      final dateStr = '${entry.date.year}-${entry.date.month.toString().padLeft(2, '0')}-${entry.date.day.toString().padLeft(2, '0')}';
-      buffer.writeln('---');
-      buffer.writeln('date: $dateStr');
+    for (var i = 0; i < entries.length; i++) {
+      final entry = entries[i];
+      final dateStr = _dateStr(entry.date);
+      final tags = tagMap[entry.id];
+      final content = _replaceImagePaths(entry.content, imageRecords, entry.id);
+
+      buffer.writeln('> date: $dateStr');
       if (entry.title != null && entry.title!.isNotEmpty) {
-        buffer.writeln('title: ${entry.title}');
+        buffer.writeln('> title: ${entry.title}');
       }
-      buffer.writeln('---');
+      if (tags != null && tags.isNotEmpty) {
+        buffer.writeln('> tags: ${tags.join(', ')}');
+      }
       buffer.writeln();
-      buffer.writeln(entry.content);
+      buffer.writeln(content);
       buffer.writeln();
+
+      if (i < entries.length - 1) {
+        buffer.writeln('---');
+        buffer.writeln();
+      }
     }
 
-    if (!mounted) return;
-    setState(() => _message = '已导出 ${entries.length} 篇日记：\n\n${buffer.toString()}');
+    final zipPath = await _buildZip(fileName, buffer, imageRecords);
+    if (mounted) {
+      await SharePlus.instance.share(ShareParams(
+        files: [XFile(zipPath)], subject: fileName, text: fileName,
+      ));
+      _showSnackBar('已导出 ${entries.length} 篇日记');
+    }
   }
+
+  // ── Helpers ──
+
+  bool _inRange(DateTime date, _DateRange range) {
+    if (range.allTime) return true;
+    final d = DateTime(date.year, date.month, date.day);
+    return !d.isBefore(range.start) && !d.isAfter(range.end);
+  }
+
+  String _dateStr(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('导出')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ElevatedButton.icon(
-              onPressed: _exportPoetry,
-              icon: const Icon(Icons.auto_stories),
-              label: const Text('导出诗稿'),
-            ),
-            const SizedBox(height: 12),
-            ElevatedButton.icon(
-              onPressed: _exportAll,
-              icon: const Icon(Icons.file_download),
-              label: const Text('导出所有日记'),
-            ),
-            const SizedBox(height: 16),
-            if (_message != null)
-              Expanded(
-                child: SingleChildScrollView(
-                  child: SelectableText(_message!, style: const TextStyle(fontSize: 13)),
-                ),
-              ),
-          ],
-        ),
+      body: ListView(
+        children: [
+          _ExportTile(
+            icon: Icons.edit_note,
+            title: '导出日记',
+            subtitle: '导出"日记"分组的内容',
+            onTap: _exportDiary,
+          ),
+          _ExportTile(
+            icon: Icons.auto_stories,
+            title: '导出诗稿',
+            subtitle: '导出"诗词"分组的诗稿合集',
+            onTap: _exportPoetry,
+          ),
+          _ExportTile(
+            icon: Icons.folder,
+            title: '导出分组',
+            subtitle: '选择分组，导出该分组内容',
+            onTap: _exportByGroup,
+          ),
+          _ExportTile(
+            icon: Icons.file_download,
+            title: '导出所有数据',
+            subtitle: '导出全部日记数据',
+            onTap: _exportAll,
+          ),
+        ],
       ),
+    );
+  }
+}
+
+// ── Supporting types ──
+
+class _DateRange {
+  final DateTime start;
+  final DateTime end;
+  final bool allTime;
+  const _DateRange({required this.start, required this.end}) : allTime = false;
+  _DateRange.all()
+      : start = DateTime(1900),
+        end = DateTime(2100),
+        allTime = true;
+}
+
+class _ImageRecord {
+  final String sourceAbsPath;
+  final String destRelPath;
+  final int entryId;
+  const _ImageRecord({
+    required this.sourceAbsPath,
+    required this.destRelPath,
+    required this.entryId,
+  });
+}
+
+class _ExportTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _ExportTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(title),
+      subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: onTap,
     );
   }
 }

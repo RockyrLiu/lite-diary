@@ -121,7 +121,17 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
         title: Value(title), date: Value(_currentDate), content: Value(content),
         groupId: Value(_currentGroupId), createdAt: Value(now), updatedAt: Value(now),
       ));
-      if (mounted) setState(() => _editingEntryId = newId);
+      if (mounted) {
+        final refreshedEntries = await db.getEntriesByDate(_currentDate);
+        if (mounted) {
+          final newIndex = refreshedEntries.indexWhere((e) => e.id == newId);
+          setState(() {
+            _editingEntryId = newId;
+            _currentEntries = refreshedEntries;
+            _currentEntryIndex = newIndex >= 0 ? newIndex : refreshedEntries.length - 1;
+          });
+        }
+      }
     }
     _hasUnsavedChanges = false;
     ref.invalidate(entriesByDateProvider(_currentDate));
@@ -214,6 +224,10 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
       appBar: AppBar(
         title: Column(children: [Text(dateStr), if (_currentEntries.length > 1) Text('${_currentEntryIndex + 1}/${_currentEntries.length}', style: const TextStyle(fontSize: 12))]),
         actions: [
+          if (_currentEntries.length > 1) ...[
+            IconButton(icon: const Icon(Icons.arrow_upward), onPressed: _goToPreviousEntry),
+            IconButton(icon: const Icon(Icons.arrow_downward), onPressed: _goToNextEntry),
+          ],
           IconButton(icon: const Icon(Icons.folder), tooltip: '分组', onPressed: _pickGroup),
           TextButton.icon(
             onPressed: () {
@@ -222,12 +236,8 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
               if (goingToPreview && _contentController.text.trim().isNotEmpty) { _saveTimer?.cancel(); _saveNow(); }
             },
             icon: Icon(_editorMode == EditorMode.source ? Icons.visibility : Icons.edit),
-            label: Text(_editorMode == EditorMode.source ? '预览' : '编辑'),
+            label: Text(_editorMode == EditorMode.source ? '渲染' : '编辑'),
           ),
-          if (_currentEntries.length > 1) ...[
-            IconButton(icon: const Icon(Icons.arrow_upward), onPressed: _goToPreviousEntry),
-            IconButton(icon: const Icon(Icons.arrow_downward), onPressed: _goToNextEntry),
-          ],
         ],
       ),
       body: GestureDetector(
@@ -237,9 +247,8 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
           }
         },
         child: Column(children: [
-          if (_editingEntryId != null && _editorMode == EditorMode.source)
-            TagEditor(key: ValueKey(_editingEntryId), entryId: _editingEntryId!),
-          const Divider(height: 1),
+          if (_editingEntryId != null)
+            TagEditor(key: ValueKey(_editingEntryId), entryId: _editingEntryId!, readOnly: _editorMode != EditorMode.source),
           Expanded(child: MarkdownEditor(
             controller: _contentController, externalMode: _editorMode,
             titleSize: renderSettings.titleSize, bodySize: renderSettings.bodySize,

@@ -154,6 +154,20 @@ class AppDatabase extends _$AppDatabase {
     return query.map((row) => row.readTable(entries)).get();
   }
 
+  Future<Map<int, List<String>>> getEntryTagsMap() async {
+    final query = select(entryTags).join([
+      innerJoin(tags, tags.id.equalsExp(entryTags.tagId)),
+    ]);
+    final rows = await query.get();
+    final map = <int, List<String>>{};
+    for (final row in rows) {
+      final entryId = row.readTable(entryTags).entryId;
+      final tagName = row.readTable(tags).name;
+      map.putIfAbsent(entryId, () => []).add(tagName);
+    }
+    return map;
+  }
+
   // ========== Settings ==========
 
   Future<void> setSetting(String key, String value) {

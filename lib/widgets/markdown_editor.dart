@@ -153,9 +153,9 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
           _toolbarButton(Icons.title, () => _insertMarkdown('# ', ''), '标题'),
           _toolbarButton(Icons.format_list_bulleted, () => _insertMarkdown('- ', ''), '无序列表'),
           _toolbarButton(Icons.format_list_numbered, () => _insertMarkdown('1. ', ''), '有序列表'),
+          _toolbarButton(Icons.image, _insertImage, '图片'),
           _toolbarButton(Icons.code, () => _insertMarkdown('`', '`'), '行内代码'),
           _toolbarButton(Icons.link, _insertLink, '链接'),
-          _toolbarButton(Icons.image, _insertImage, '图片'),
         ],
       ),
     );
