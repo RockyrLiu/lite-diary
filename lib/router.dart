@@ -6,6 +6,7 @@ import 'pages/content/content_page.dart';
 import 'pages/llm/llm_page.dart';
 import 'pages/settings/settings_page.dart';
 import 'pages/settings/export_page.dart';
+import 'pages/settings/about_page.dart';
 
 final router = GoRouter(
   initialLocation: '/',
@@ -81,7 +82,7 @@ final router = GoRouter(
             GoRoute(path: '/settings/encryption', builder: (context, state) => const SettingsPage()),
             GoRoute(path: '/settings/llm', builder: (context, state) => const SettingsPage()),
             GoRoute(path: '/settings/display', builder: (context, state) => const SettingsPage()),
-            GoRoute(path: '/settings/about', builder: (context, state) => const SettingsPage()),
+            GoRoute(path: '/settings/about', builder: (context, state) => const AboutPage()),
             GoRoute(path: '/export', builder: (context, state) => const ExportPage()),
           ],
         ),
