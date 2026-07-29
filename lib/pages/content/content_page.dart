@@ -93,6 +93,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
       if (!mounted) return;
       setState(() => _currentEntries = entries);
       _loadCurrentEntry();
+      if (entries.isEmpty) _autoLocate();
     }
   }
 
@@ -209,6 +210,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
       _editingEntryId = null;
     });
     _loadCurrentEntry();
+    if (entries.isEmpty) _autoLocate();
   }
 
   Future<void> _goToNextDate() async {
