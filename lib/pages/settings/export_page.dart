@@ -426,8 +426,8 @@ class _ExportPageState extends ConsumerState<ExportPage> {
           ),
           _ExportTile(
             icon: Icons.file_download,
-            title: '导出所有数据',
-            subtitle: '导出全部日记数据',
+            title: '导出全部数据',
+            subtitle: '导出全部分组中的所有内容',
             onTap: _exportAll,
           ),
         ],

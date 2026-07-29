@@ -56,7 +56,6 @@ GoRouter _buildRouter({
     branches.add(StatefulShellBranch(routes: [
       GoRoute(path: '/settings', builder: (context, state) => const SettingsPage(), routes: [
         GoRoute(path: 'display', builder: (context, state) => const DisplayPage()),
-        GoRoute(path: 'encryption', builder: (context, state) => const SettingsPage()),
         GoRoute(path: 'cloud', builder: (context, state) => const SettingsPage()),
         GoRoute(path: 'llm', builder: (context, state) => const SettingsPage()),
         GoRoute(path: 'about', builder: (context, state) => const AboutPage()),

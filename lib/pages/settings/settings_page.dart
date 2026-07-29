@@ -19,13 +19,6 @@ class SettingsPage extends StatelessWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/display'),
           ),
-          ListTile(
-            leading: const Icon(Icons.lock),
-            title: const Text('加密'),
-            subtitle: const Text('设置密码保护数据'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/settings/encryption'),
-          ),
           const SectionHeader('导出', color: Colors.teal),
           ListTile(
             leading: const Icon(Icons.file_download),
