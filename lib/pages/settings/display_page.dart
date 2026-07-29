@@ -122,7 +122,7 @@ class _DisplayPageState extends ConsumerState<DisplayPage> {
           const SectionHeader('首页显示', color: Colors.lightBlue),
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Text('排在第一的页面为打开应用时的默认首页，上下箭头调整顺序', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            child: Text('第一页面为打开应用时的默认首页，上下箭头调整顺序', style: TextStyle(fontSize: 12, color: Colors.grey)),
           ),
           if (_loaded)
             Column(children: List.generate(_pageOrder.length, (i) {
