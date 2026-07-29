@@ -51,6 +51,7 @@ class _MonthCalendarWidgetState extends State<MonthCalendarWidget> {
           }
         });
         return SimpleDialog(
+          backgroundColor: Theme.of(ctx).colorScheme.surface,
           title: const Text('选择年份'),
           children: [
             SizedBox(

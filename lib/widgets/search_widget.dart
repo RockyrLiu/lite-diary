@@ -74,7 +74,9 @@ class _SearchWidgetState extends ConsumerState<SearchWidget> {
 
   void _showResults() {
     showModalBottomSheet(
-      context: context, isScrollControlled: true,
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       builder: (ctx) => DraggableScrollableSheet(
         initialChildSize: 0.6, minChildSize: 0.3, maxChildSize: 0.9, expand: false,
         builder: (ctx, scrollController) => Column(children: [

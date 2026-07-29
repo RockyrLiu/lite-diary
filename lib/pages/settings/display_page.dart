@@ -86,7 +86,7 @@ class _DisplayPageState extends ConsumerState<DisplayPage> {
       appBar: AppBar(title: const Text('显示控制')),
       body: ListView(
         children: [
-              const SectionHeader('主题色彩', color: Colors.lightBlue),
+              const SectionHeader('主题色彩'),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Wrap(
@@ -108,7 +108,7 @@ class _DisplayPageState extends ConsumerState<DisplayPage> {
             ),
           ),
           const Divider(),
-          const SectionHeader('主题', color: Colors.lightBlue),
+          const SectionHeader('主题'),
           SwitchListTile(
             title: const Text('深色模式'),
             value: currentMode == ThemeMode.dark,
@@ -119,7 +119,7 @@ class _DisplayPageState extends ConsumerState<DisplayPage> {
             },
           ),
           const Divider(),
-          const SectionHeader('首页显示', color: Colors.lightBlue),
+          const SectionHeader('首页显示'),
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: Text('第一页面为打开应用时的默认首页，上下箭头调整顺序', style: TextStyle(fontSize: 12, color: Colors.grey)),
@@ -137,7 +137,7 @@ class _DisplayPageState extends ConsumerState<DisplayPage> {
               );
             })),
           const Divider(),
-          const SectionHeader('渲染', color: Colors.lightBlue),
+          const SectionHeader('渲染'),
           ListTile(
             title: const Text('标题字号'),
             subtitle: Text('${renderSettings.titleSize.toInt()} px'),
@@ -157,7 +157,7 @@ class _DisplayPageState extends ConsumerState<DisplayPage> {
             })),
           ),
           const Divider(),
-          const SectionHeader('底部导航栏', color: Colors.lightBlue),
+          const SectionHeader('底部导航栏'),
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: Text('即时生效', style: TextStyle(fontSize: 12, color: Colors.grey)),

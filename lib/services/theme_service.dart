@@ -37,7 +37,7 @@ class AppTheme {
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: Colors.white,
-        selectedItemColor: seed ?? Colors.lightBlue,
+        selectedItemColor: seed?.withAlpha(160) ?? Colors.lightBlue.shade200,
         unselectedItemColor: Colors.grey,
       ),
     );

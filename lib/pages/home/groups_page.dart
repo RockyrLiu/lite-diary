@@ -97,25 +97,28 @@ class _GroupsPageState extends ConsumerState<GroupsPage> {
           // 左侧分组列表
           SizedBox(
             width: 120,
-            child: groupsAsync.when(
-              data: (groups) => ListView(
+             child: groupsAsync.when(
+               data: (groups) {
+                 final selColor = Theme.of(context).colorScheme.primary.withAlpha(30);
+                 return ListView(
                 children: [
                   ListTile(
                     title: const Text('全部', style: TextStyle(fontWeight: FontWeight.bold)),
                     selected: _selectedGroupId == null,
-                    selectedTileColor: Colors.lightBlue.shade50,
+                    selectedTileColor: selColor,
                     onTap: () => setState(() => _selectedGroupId = null),
                   ),
                   ...groups.map((g) => ListTile(
                     title: Text(g.name),
                     selected: _selectedGroupId == g.id,
-                    selectedTileColor: Colors.lightBlue.shade50,
+                    selectedTileColor: selColor,
                     onTap: () => setState(() => _selectedGroupId = g.id),
                     onLongPress: () => _showGroupMenu(g),
                   )),
                 ],
-              ),
-              loading: () => const Center(child: CircularProgressIndicator()),
+              );
+             },
+             loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => const SizedBox(),
             ),
           ),

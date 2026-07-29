@@ -12,7 +12,7 @@ class SettingsPage extends StatelessWidget {
       appBar: AppBar(title: const Text('设置')),
       body: ListView(
         children: [
-          const SectionHeader('通用', color: Colors.teal),
+          const SectionHeader('通用'),
           ListTile(
             leading: const Icon(Icons.palette),
             title: const Text('外观'),
@@ -26,7 +26,7 @@ class SettingsPage extends StatelessWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/filters'),
           ),
-          const SectionHeader('导出', color: Colors.teal),
+          const SectionHeader('导出'),
           ListTile(
             leading: const Icon(Icons.file_download),
             title: const Text('导出'),
@@ -34,7 +34,7 @@ class SettingsPage extends StatelessWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/export'),
           ),
-          const SectionHeader('云端（待实现）', color: Colors.teal),
+          const SectionHeader('云端（待实现）'),
           ListTile(
             leading: const Icon(Icons.cloud),
             title: const Text('云端配置'),
@@ -43,7 +43,7 @@ class SettingsPage extends StatelessWidget {
             enabled: false,
             onTap: () => context.push('/settings/cloud'),
           ),
-          const SectionHeader('LLM（待实现）', color: Colors.teal),
+          const SectionHeader('LLM（待实现）'),
           ListTile(
             leading: const Icon(Icons.smart_toy),
             title: const Text('LLM 配置'),
@@ -52,7 +52,7 @@ class SettingsPage extends StatelessWidget {
             enabled: false,
             onTap: () => context.push('/settings/llm'),
           ),
-          const SectionHeader('其他', color: Colors.teal),
+          const SectionHeader('其他'),
           ListTile(
             leading: const Icon(Icons.info),
             title: const Text('关于'),
