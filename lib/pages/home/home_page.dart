@@ -19,12 +19,16 @@ class HomePage extends ConsumerStatefulWidget {
 
 class _HomePageState extends ConsumerState<HomePage> {
   late PageController _pageController;
-  List<int> _order = [0, 1, 2];
+  static const _kPageMultiplier = 1000;
+
+  final _pages = const [OnThisDayPage(), _CalendarViewPage(), GroupsPage()];
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(initialPage: 1);
+    final order = ref.read(homePageOrderProvider);
+    final homeIdx = order[0]; // 第一个即默认首页
+    _pageController = PageController(initialPage: _kPageMultiplier * _pages.length + homeIdx);
   }
 
   @override
@@ -36,30 +40,17 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   Widget build(BuildContext context) {
     final pageOrder = ref.watch(homePageOrderProvider);
-    if (pageOrder != _order) {
-      _order = pageOrder;
-      final calendarIdx = _order.indexOf(1);
-      if (calendarIdx >= 0 && _pageController.hasClients) {
-        _pageController.jumpToPage(calendarIdx);
-      }
-    }
 
-    final orderedPages = _order.map((idx) {
-      return switch (idx) {
-        0 => const OnThisDayPage(),
-        1 => const _CalendarViewPage(),
-        _ => const GroupsPage(),
-      };
-    }).toList();
+    final orderedPages = pageOrder.map((idx) => _pages[idx]).toList();
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Diary Lite'),
         actions: const [SearchWidget()],
       ),
-      body: PageView(
+      body: PageView.builder(
         controller: _pageController,
-        children: orderedPages,
+        itemBuilder: (context, index) => orderedPages[index % orderedPages.length],
       ),
     );
   }
@@ -80,27 +71,15 @@ class _CalendarViewPage extends ConsumerWidget {
 
     return countsAsync.when(
       data: (counts) {
-        if (counts.isEmpty) {
-          return const Center(child: Text('还没有日记，点击右下角 + 开始记录'));
-        }
+        if (counts.isEmpty) return const Center(child: Text('还没有日记，点击右下角 + 开始记录'));
         return SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.all(8),
-            child: Column(
-              children: [
-                HeatmapWidget(
-                  data: HeatmapData(dateCounts: counts),
-                  year: now.year,
-                  onDateTap: (date) => _navigateToDate(context, date),
-                ),
-                const SizedBox(height: 16),
-                MonthCalendarWidget(
-                  data: CalendarData(dateCounts: counts),
-                  initialMonth: now,
-                  onDateTap: (date) => _navigateToDate(context, date),
-                ),
-              ],
-            ),
+            child: Column(children: [
+              HeatmapWidget(data: HeatmapData(dateCounts: counts), year: now.year, onDateTap: (date) => _navigateToDate(context, date)),
+              const SizedBox(height: 16),
+              MonthCalendarWidget(data: CalendarData(dateCounts: counts), initialMonth: now, onDateTap: (date) => _navigateToDate(context, date)),
+            ]),
           ),
         );
       },

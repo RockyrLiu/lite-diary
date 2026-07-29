@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -11,7 +12,7 @@ import 'pages/settings/about_page.dart';
 import 'pages/settings/display_page.dart';
 import 'services/tab_notifier.dart';
 
-GoRouter buildRouter({
+GoRouter _buildRouter({
   bool showHome = true,
   bool showContent = true,
   bool showLlm = true,
@@ -33,9 +34,7 @@ GoRouter buildRouter({
         final dateStr = state.pathParameters['dateStr']!;
         final parts = dateStr.split('-');
         DateTime? date;
-        if (parts.length == 3) {
-          date = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
-        }
+        if (parts.length == 3) { date = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2])); }
         return ContentPage(key: ValueKey('content-$dateStr'), initialDate: date);
       }),
       GoRoute(path: '/entry/:id', builder: (context, state) {
@@ -49,10 +48,7 @@ GoRouter buildRouter({
   if (showLlm) {
     branches.add(StatefulShellBranch(routes: [
       GoRoute(path: '/llm', builder: (context, state) => const LlmPage()),
-      GoRoute(path: '/llm/:id', builder: (context, state) {
-        final id = state.pathParameters['id']!;
-        return LlmPage(conversationId: id);
-      }),
+      GoRoute(path: '/llm/:id', builder: (context, state) { final id = state.pathParameters['id']!; return LlmPage(conversationId: id); }),
     ]));
     navItems.add(const BottomNavigationBarItem(icon: Icon(Icons.chat), label: 'LLM'));
   }
@@ -75,28 +71,29 @@ GoRouter buildRouter({
     refreshListenable: tabVisibilityNotifier,
     routes: [
       StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) {
-          return Scaffold(
-            body: navigationShell,
-            bottomNavigationBar: BottomNavigationBar(
-              currentIndex: navigationShell.currentIndex,
-              onTap: (index) => navigationShell.goBranch(index),
-              type: BottomNavigationBarType.fixed,
-              items: navItems,
-            ),
-          );
-        },
+        builder: (context, state, navigationShell) => Scaffold(
+          body: navigationShell,
+          bottomNavigationBar: BottomNavigationBar(
+            currentIndex: navigationShell.currentIndex,
+            onTap: (index) => navigationShell.goBranch(index),
+            type: BottomNavigationBarType.fixed,
+            items: navItems,
+          ),
+        ),
         branches: branches,
       ),
     ],
   );
 }
 
-GoRouter router = buildRouter();
+final routerProvider = StateProvider<GoRouter>((ref) {
+  // 初始用默认值构建，main() 中 reload 会更新为持久化值
+  return _buildRouter();
+});
 
-Future<void> reloadRouter() async {
+Future<void> reloadRouter(dynamic ref) async {
   final prefs = await SharedPreferences.getInstance();
-  router = buildRouter(
+  ref.read(routerProvider.notifier).state = _buildRouter(
     showHome: prefs.getBool('tab_home') ?? true,
     showContent: prefs.getBool('tab_content') ?? true,
     showLlm: prefs.getBool('tab_llm') ?? true,

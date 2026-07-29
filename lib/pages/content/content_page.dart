@@ -34,7 +34,8 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   int _currentGroupId = 1;
   EditorMode _editorMode = EditorMode.preview;
   bool _hasUnsavedChanges = false;
-  bool _initialized = false;
+
+  AppDatabase get db => ref.read(databaseProvider);
 
   String? _extractTitle(String content) {
     final firstLine = content.split('\n').first.trim();
@@ -49,6 +50,35 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _init();
+  }
+
+  Future<void> _init() async {
+    final targetDate = widget.initialDate ?? DateTime.now();
+    _currentDate = DateTime(targetDate.year, targetDate.month, targetDate.day);
+
+    if (widget.entryId != null) {
+      final entry = await db.getEntryById(widget.entryId!);
+      if (entry == null || !mounted) return;
+      _currentGroupId = entry.groupId;
+      final date = DateTime(entry.date.year, entry.date.month, entry.date.day);
+      final entries = await db.getEntriesByDate(date);
+      if (!mounted) return;
+      final idx = entries.indexWhere((e) => e.id == entry.id);
+      setState(() {
+        _currentDate = date;
+        _currentEntries = entries;
+        _currentEntryIndex = idx >= 0 ? idx : 0;
+      });
+      _loadCurrentEntry();
+    } else if (widget.isNew) {
+      _startNewEntry();
+    } else {
+      final entries = await db.getEntriesByDate(_currentDate);
+      if (!mounted) return;
+      setState(() => _currentEntries = entries);
+      _loadCurrentEntry();
+    }
   }
 
   @override
@@ -79,33 +109,18 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   Future<void> _saveNow() async {
     if (!_hasUnsavedChanges) return;
     final content = _contentController.text.trim();
-    if (content.isEmpty) {
-      _hasUnsavedChanges = false;
-      return;
-    }
+    if (content.isEmpty) { _hasUnsavedChanges = false; return; }
     final title = _extractTitle(content);
-    final db = ref.read(databaseProvider);
     final now = DateTime.now();
     if (_editingEntryId != null) {
-      await db.updateEntry(
-        _editingEntryId!,
-        EntriesCompanion(
-          title: Value(title),
-          content: Value(content),
-          updatedAt: Value(now),
-        ),
-      );
+      await db.updateEntry(_editingEntryId!, EntriesCompanion(
+        title: Value(title), content: Value(content), updatedAt: Value(now),
+      ));
     } else {
-      final newId = await db.createEntry(
-        EntriesCompanion(
-          title: Value(title),
-          date: Value(_currentDate),
-          content: Value(content),
-          groupId: Value(_currentGroupId),
-          createdAt: Value(now),
-          updatedAt: Value(now),
-        ),
-      );
+      final newId = await db.createEntry(EntriesCompanion(
+        title: Value(title), date: Value(_currentDate), content: Value(content),
+        groupId: Value(_currentGroupId), createdAt: Value(now), updatedAt: Value(now),
+      ));
       if (mounted) setState(() => _editingEntryId = newId);
     }
     _hasUnsavedChanges = false;
@@ -114,54 +129,12 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
     ref.invalidate(calendarDateCountsProvider);
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_initialized) return;
-    _initialized = true;
-
-    final targetDate = widget.initialDate ?? DateTime.now();
-    _currentDate = DateTime(targetDate.year, targetDate.month, targetDate.day);
-
-    if (widget.entryId != null) {
-      _loadEntryById(widget.entryId!);
-    } else if (widget.isNew) {
-      _startNewEntry();
-    } else {
-      _loadEntriesForDate(_currentDate);
-    }
-  }
-
-  void _loadEntryById(int id) {
-    ref.read(entryByIdProvider(id)).whenData((entry) {
-      if (entry != null && mounted) {
-        _currentGroupId = entry.groupId;
-        final date = DateTime(entry.date.year, entry.date.month, entry.date.day);
-        _loadEntriesForDate(date);
-        ref.read(entriesByDateProvider(date)).whenData((entries) {
-          final idx = entries.indexWhere((e) => e.id == entry.id);
-          if (idx >= 0 && mounted) {
-            setState(() => _currentEntryIndex = idx);
-            _loadCurrentEntry();
-          }
-        });
-      }
-    });
-  }
-
-  void _loadEntriesForDate(DateTime date) {
-    final entriesAsync = ref.read(entriesByDateProvider(date));
-    entriesAsync.whenData((entries) {
-      if (mounted) {
-        setState(() {
-          _currentDate = date;
-          _currentEntries = entries;
-          _currentEntryIndex = 0;
-          _editingEntryId = null;
-        });
-        _loadCurrentEntry();
-      }
-    });
+  Future<void> _loadEntriesForDate(DateTime date) async {
+    _saveNow();
+    final entries = await db.getEntriesByDate(date);
+    if (!mounted) return;
+    setState(() { _currentDate = date; _currentEntries = entries; _currentEntryIndex = 0; _editingEntryId = null; });
+    _loadCurrentEntry();
   }
 
   void _loadCurrentEntry() {
@@ -178,113 +151,57 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
     }
   }
 
-  void _goToNextDate() {
+  Future<void> _goToNextDate() async {
     _saveNow();
-    final dates = _getAllEntryDates();
+    final entries = await db.getAllEntries();
+    final dates = entries.map((e) => DateTime(e.date.year, e.date.month, e.date.day)).toSet().toList()..sort();
     final currentKey = DateTime(_currentDate.year, _currentDate.month, _currentDate.day);
     final nextDate = dates.firstWhere((d) => d.isAfter(currentKey), orElse: () => _currentDate);
-    if (nextDate != _currentDate) _loadEntriesForDate(nextDate);
+    if (nextDate != _currentDate) await _loadEntriesForDate(nextDate);
   }
 
-  void _goToPreviousDate() {
+  Future<void> _goToPreviousDate() async {
     _saveNow();
-    final dates = _getAllEntryDates();
+    final entries = await db.getAllEntries();
+    final dates = entries.map((e) => DateTime(e.date.year, e.date.month, e.date.day)).toSet().toList()..sort();
     final currentKey = DateTime(_currentDate.year, _currentDate.month, _currentDate.day);
     final prevDate = dates.reversed.firstWhere((d) => d.isBefore(currentKey), orElse: () => _currentDate);
-    if (prevDate != _currentDate) _loadEntriesForDate(prevDate);
+    if (prevDate != _currentDate) await _loadEntriesForDate(prevDate);
   }
 
-  void _goToNextEntry() {
-    _saveNow();
-    if (_currentEntryIndex < _currentEntries.length - 1) {
-      setState(() { _currentEntryIndex++; _loadCurrentEntry(); });
-    }
-  }
-
-  void _goToPreviousEntry() {
-    _saveNow();
-    if (_currentEntryIndex > 0) {
-      setState(() { _currentEntryIndex--; _loadCurrentEntry(); });
-    }
-  }
+  void _goToNextEntry() { _saveNow(); if (_currentEntryIndex < _currentEntries.length - 1) { setState(() { _currentEntryIndex++; _loadCurrentEntry(); }); } }
+  void _goToPreviousEntry() { _saveNow(); if (_currentEntryIndex > 0) { setState(() { _currentEntryIndex--; _loadCurrentEntry(); }); } }
 
   void _startNewEntry() {
     _saveNow();
-    setState(() {
-      _contentController.clear();
-      _editingEntryId = null;
-      _hasUnsavedChanges = false;
-    });
-  }
-
-  List<DateTime> _getAllEntryDates() {
-    final entriesAsync = ref.read(allEntriesProvider);
-    final entries = entriesAsync.valueOrNull;
-    if (entries == null) return [];
-    return entries.map((e) => DateTime(e.date.year, e.date.month, e.date.day)).toSet().toList()..sort();
+    setState(() { _contentController.clear(); _editingEntryId = null; _hasUnsavedChanges = false; });
   }
 
   Future<void> _pickGroup() async {
-    final groupsAsync = ref.read(allGroupsProvider);
-    final groups = groupsAsync.valueOrNull ?? [];
+    final groups = await db.getAllGroups();
     final selected = await showModalBottomSheet<int>(
       context: context,
       builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  const Text('选择分组', style: TextStyle(fontWeight: FontWeight.bold)),
-                  const Spacer(),
-                  IconButton(icon: const Icon(Icons.add), onPressed: () async {
-                    final ctrl = TextEditingController();
-                    final name = await showDialog<String>(
-                      context: ctx,
-                      builder: (dctx) => AlertDialog(
-                        title: const Text('新建分组'),
-                        content: TextField(controller: ctrl, autofocus: true, decoration: const InputDecoration(hintText: '分组名称')),
-                        actions: [
-                          TextButton(onPressed: () => Navigator.pop(dctx), child: const Text('取消')),
-                          TextButton(onPressed: () => Navigator.pop(dctx, ctrl.text), child: const Text('确定')),
-                        ],
-                      ),
-                    );
-                    if (name != null && name.trim().isNotEmpty) {
-                      await ref.read(databaseProvider).createGroup(GroupsCompanion(name: Value(name.trim())));
-                      ref.invalidate(allGroupsProvider);
-                      if (ctx.mounted) Navigator.pop(ctx);
-                    }
-                  }),
-                ],
-              ),
-            ),
-            ...groups.map((g) => ListTile(
-              leading: Icon(Icons.folder, color: _currentGroupId == g.id ? Colors.lightBlue : null),
-              title: Text(g.name),
-              trailing: _currentGroupId == g.id ? const Icon(Icons.check, color: Colors.lightBlue) : null,
-              onTap: () => Navigator.pop(ctx, g.id),
-            )),
-          ],
-        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Padding(padding: const EdgeInsets.all(12), child: Row(children: [
+            const Text('选择分组', style: TextStyle(fontWeight: FontWeight.bold)), const Spacer(),
+            IconButton(icon: const Icon(Icons.add), onPressed: () async {
+              final ctrl = TextEditingController();
+              final name = await showDialog<String>(context: ctx, builder: (dctx) => AlertDialog(
+                title: const Text('新建分组'), content: TextField(controller: ctrl, autofocus: true, decoration: const InputDecoration(hintText: '分组名称')),
+                actions: [TextButton(onPressed: () => Navigator.pop(dctx), child: const Text('取消')), TextButton(onPressed: () => Navigator.pop(dctx, ctrl.text), child: const Text('确定'))],
+              ));
+              if (name != null && name.trim().isNotEmpty) { await db.createGroup(GroupsCompanion(name: Value(name.trim()))); ref.invalidate(allGroupsProvider); if (ctx.mounted) Navigator.pop(ctx); }
+            }),
+          ])),
+          ...groups.map((g) => ListTile(leading: Icon(Icons.folder, color: _currentGroupId == g.id ? Colors.lightBlue : null), title: Text(g.name), trailing: _currentGroupId == g.id ? const Icon(Icons.check, color: Colors.lightBlue) : null, onTap: () => Navigator.pop(ctx, g.id))),
+        ]),
       ),
     );
-    if (selected != null && selected != _currentGroupId) {
+    if (selected != null && selected != _currentGroupId && mounted) {
       setState(() => _currentGroupId = selected);
-      if (_editingEntryId != null) {
-        await ref.read(databaseProvider).updateEntry(
-          _editingEntryId!,
-          EntriesCompanion(groupId: Value(selected), updatedAt: Value(DateTime.now())),
-        );
-        ref.invalidate(allEntriesProvider);
-      }
+      if (_editingEntryId != null) { await db.updateEntry(_editingEntryId!, EntriesCompanion(groupId: Value(selected), updatedAt: Value(DateTime.now()))); ref.invalidate(allEntriesProvider); }
     }
-  }
-
-  void _onContentChanged(String value) {
-    _scheduleSave();
   }
 
   @override
@@ -294,23 +211,14 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
 
     return Scaffold(
       appBar: AppBar(
-        title: Column(children: [
-          Text(dateStr),
-          if (_currentEntries.length > 1)
-            Text('${_currentEntryIndex + 1}/${_currentEntries.length}', style: const TextStyle(fontSize: 12)),
-        ]),
+        title: Column(children: [Text(dateStr), if (_currentEntries.length > 1) Text('${_currentEntryIndex + 1}/${_currentEntries.length}', style: const TextStyle(fontSize: 12))]),
         actions: [
           IconButton(icon: const Icon(Icons.folder), tooltip: '分组', onPressed: _pickGroup),
           TextButton.icon(
             onPressed: () {
               final goingToPreview = _editorMode == EditorMode.source;
-              setState(() {
-                _editorMode = goingToPreview ? EditorMode.preview : EditorMode.source;
-              });
-              if (goingToPreview && _contentController.text.trim().isNotEmpty) {
-                _saveTimer?.cancel();
-                _saveNow();
-              }
+              setState(() { _editorMode = goingToPreview ? EditorMode.preview : EditorMode.source; });
+              if (goingToPreview && _contentController.text.trim().isNotEmpty) { _saveTimer?.cancel(); _saveNow(); }
             },
             icon: Icon(_editorMode == EditorMode.source ? Icons.visibility : Icons.edit),
             label: Text(_editorMode == EditorMode.source ? '预览' : '编辑'),
@@ -324,38 +232,22 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
       body: GestureDetector(
         onHorizontalDragEnd: (details) {
           if (details.primaryVelocity != null) {
-            if (details.primaryVelocity! < -50) { _goToNextDate(); }
-            else if (details.primaryVelocity! > 50) { _goToPreviousDate(); }
+            if (details.primaryVelocity! < -50) { _goToNextDate(); } else if (details.primaryVelocity! > 50) { _goToPreviousDate(); }
           }
         },
         child: Column(children: [
-          if (_editingEntryId != null)
-            TagEditor(key: ValueKey(_editingEntryId), entryId: _editingEntryId!),
+          if (_editingEntryId != null) TagEditor(key: ValueKey(_editingEntryId), entryId: _editingEntryId!),
           const Divider(height: 1),
-          Expanded(
-            child: MarkdownEditor(
-              controller: _contentController,
-              externalMode: _editorMode,
-              titleSize: renderSettings.titleSize,
-              bodySize: renderSettings.bodySize,
-              onToggleMode: () {
-                setState(() {
-                  _editorMode = _editorMode == EditorMode.source ? EditorMode.preview : EditorMode.source;
-                });
-              },
-              onChanged: _onContentChanged,
-              onInsertImage: _editingEntryId != null
-                  ? () async => ImageService().pickAndSaveImage(ref, _editingEntryId!)
-                  : null,
-            ),
-          ),
+          Expanded(child: MarkdownEditor(
+            controller: _contentController, externalMode: _editorMode,
+            titleSize: renderSettings.titleSize, bodySize: renderSettings.bodySize,
+            onToggleMode: () { setState(() { _editorMode = _editorMode == EditorMode.source ? EditorMode.preview : EditorMode.source; }); },
+            onChanged: (_) => _scheduleSave(),
+            onInsertImage: _editingEntryId != null ? () async => ImageService().pickAndSaveImage(ref, _editingEntryId!) : null,
+          )),
         ]),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _startNewEntry,
-        tooltip: '补记',
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: FloatingActionButton(onPressed: _startNewEntry, tooltip: '补记', child: const Icon(Icons.add)),
     );
   }
 }
