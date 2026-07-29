@@ -34,16 +34,48 @@ class _MonthCalendarWidgetState extends State<MonthCalendarWidget> {
 
   void _pickYear() async {
     final now = DateTime.now();
+    const startYear = 1900;
+    const endYear = 2100;
+    const totalYears = endYear - startYear + 1;
+    final currentIndex = endYear - now.year;
+    final scrollController = ScrollController();
+
     final year = await showDialog<int>(
       context: context,
-      builder: (ctx) => SimpleDialog(
-        title: const Text('选择年份'),
-        children: List.generate(6, (i) {
-          final y = now.year - 2 + i;
-          return SimpleDialogOption(onPressed: () => Navigator.pop(ctx, y), child: Text('$y 年', textAlign: TextAlign.center));
-        }),
-      ),
+      builder: (ctx) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (scrollController.hasClients) {
+            final targetOffset =
+                (currentIndex * 48.0 - 126).clamp(0.0, scrollController.position.maxScrollExtent);
+            scrollController.jumpTo(targetOffset);
+          }
+        });
+        return SimpleDialog(
+          title: const Text('选择年份'),
+          children: [
+            SizedBox(
+              height: 300,
+              width: 120,
+              child: ListView.builder(
+                controller: scrollController,
+                itemExtent: 48,
+                itemCount: totalYears,
+                itemBuilder: (_, i) {
+                  final y = endYear - i;
+                  return SimpleDialogOption(
+                    onPressed: () => Navigator.pop(ctx, y),
+                    child: Text('$y 年',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontWeight: y == now.year ? FontWeight.bold : null)),
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
     );
+    scrollController.dispose();
     if (year != null && mounted) setState(() { _currentMonth = DateTime(year, _currentMonth.month, 1); });
   }
 
@@ -79,6 +111,7 @@ class _MonthCalendarWidgetState extends State<MonthCalendarWidget> {
     final daysInMonth = lastDay.day;
     final today = DateTime.now();
     final todayKey = DateTime(today.year, today.month, today.day);
+    final colorScheme = Theme.of(context).colorScheme;
     final rows = <Widget>[];
     var currentRow = <Widget>[];
 
@@ -92,11 +125,15 @@ class _MonthCalendarWidgetState extends State<MonthCalendarWidget> {
         onTap: widget.onDateTap != null ? () => widget.onDateTap!(date) : null,
         child: Container(
           margin: const EdgeInsets.all(2),
-          decoration: BoxDecoration(color: isToday ? Colors.teal.shade50 : null, borderRadius: BorderRadius.circular(8), border: isToday ? Border.all(color: Colors.teal) : null),
+          decoration: BoxDecoration(
+            color: isToday ? colorScheme.primary.withAlpha(35) : null,
+            borderRadius: BorderRadius.circular(8),
+            border: isToday ? Border.all(color: colorScheme.primary.withAlpha(120)) : null,
+          ),
           child: Column(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
             Text('$day', style: TextStyle(fontSize: 18, fontWeight: isToday ? FontWeight.bold : null)),
             Text(LunarService.lunarDayShort(date), style: TextStyle(fontSize: 11, color: Colors.grey.shade500), maxLines: 1, overflow: TextOverflow.ellipsis),
-            if (count > 0) Container(width: 6, height: 6, decoration: BoxDecoration(color: Colors.teal.shade300, shape: BoxShape.circle)),
+            if (count > 0) Container(width: 6, height: 6, decoration: BoxDecoration(color: colorScheme.primary, shape: BoxShape.circle)),
           ]),
         ),
       )));

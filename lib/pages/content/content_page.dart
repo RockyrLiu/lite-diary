@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' hide isNull, isNotNull, Column;
@@ -24,7 +26,8 @@ class ContentPage extends ConsumerStatefulWidget {
   ConsumerState<ContentPage> createState() => _ContentPageState();
 }
 
-class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingObserver {
+class _ContentPageState extends ConsumerState<ContentPage>
+    with WidgetsBindingObserver, TickerProviderStateMixin {
   final TextEditingController _contentController = TextEditingController();
   Timer? _saveTimer;
   DateTime _currentDate = DateTime.now();
@@ -35,6 +38,11 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   int _diaryGroupId = 1;
   EditorMode _editorMode = EditorMode.preview;
   bool _hasUnsavedChanges = false;
+
+  late AnimationController _flipController;
+  bool _isFlipping = false;
+  bool _flipForward = true;
+  DateTime? _pendingDate;
 
   AppDatabase get db => ref.read(databaseProvider);
 
@@ -50,6 +58,8 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   @override
   void initState() {
     super.initState();
+    _flipController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
+    _flipController.addStatusListener(_onFlipStatusChanged);
     WidgetsBinding.instance.addObserver(this);
     _init();
   }
@@ -101,6 +111,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _flipController.dispose();
     _saveTimer?.cancel();
     _saveNow();
     _contentController.dispose();
@@ -148,14 +159,6 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
     ref.invalidate(calendarDateCountsProvider);
   }
 
-  Future<void> _loadEntriesForDate(DateTime date) async {
-    _saveNow();
-    final entries = await db.getEntriesByDate(date);
-    if (!mounted) return;
-    setState(() { _currentDate = date; _currentEntries = entries; _currentEntryIndex = 0; _editingEntryId = null; });
-    _loadCurrentEntry();
-  }
-
   void _loadCurrentEntry() {
     if (_currentEntries.isNotEmpty && _currentEntryIndex < _currentEntries.length) {
       final entry = _currentEntries[_currentEntryIndex];
@@ -170,22 +173,54 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
     }
   }
 
+  void _onFlipStatusChanged(AnimationStatus status) {
+    if (status == AnimationStatus.completed) {
+      _flipController.reset();
+      if (_pendingDate != null) {
+        final pending = _pendingDate!;
+        _pendingDate = null;
+        setState(() {
+          _currentDate = pending;
+          _isFlipping = false;
+        });
+        _loadEntriesForDateAfterFlip(pending);
+      }
+    }
+  }
+
+  Future<void> _loadEntriesForDateAfterFlip(DateTime date) async {
+    final entries = await db.getEntriesByDate(date);
+    if (!mounted) return;
+    setState(() { _currentEntries = entries; _currentEntryIndex = 0; _editingEntryId = null; });
+    _loadCurrentEntry();
+  }
+
   Future<void> _goToNextDate() async {
+    if (_isFlipping) return;
     _saveNow();
     final entries = await db.getAllEntries();
     final dates = entries.map((e) => DateTime(e.date.year, e.date.month, e.date.day)).toSet().toList()..sort();
     final currentKey = DateTime(_currentDate.year, _currentDate.month, _currentDate.day);
     final nextDate = dates.firstWhere((d) => d.isAfter(currentKey), orElse: () => _currentDate);
-    if (nextDate != _currentDate) await _loadEntriesForDate(nextDate);
+    if (nextDate == _currentDate) return;
+    _pendingDate = nextDate;
+    _flipForward = true;
+    _isFlipping = true;
+    _flipController.forward();
   }
 
   Future<void> _goToPreviousDate() async {
+    if (_isFlipping) return;
     _saveNow();
     final entries = await db.getAllEntries();
     final dates = entries.map((e) => DateTime(e.date.year, e.date.month, e.date.day)).toSet().toList()..sort();
     final currentKey = DateTime(_currentDate.year, _currentDate.month, _currentDate.day);
     final prevDate = dates.reversed.firstWhere((d) => d.isBefore(currentKey), orElse: () => _currentDate);
-    if (prevDate != _currentDate) await _loadEntriesForDate(prevDate);
+    if (prevDate == _currentDate) return;
+    _pendingDate = prevDate;
+    _flipForward = false;
+    _isFlipping = true;
+    _flipController.forward();
   }
 
   void _goToNextEntry() { _saveNow(); if (_currentEntryIndex < _currentEntries.length - 1) { setState(() { _currentEntryIndex++; _loadCurrentEntry(); }); } }
@@ -224,6 +259,77 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
     }
   }
 
+  Widget _buildFlipBody(RenderingSettings renderSettings) {
+    final size = MediaQuery.of(context).size;
+    return AnimatedBuilder(
+      animation: _flipController,
+      builder: (context, child) {
+        final progress = _flipController.value;
+
+        return Stack(
+          children: [
+            // Back page (new content)
+            if (progress > 0.5)
+              Transform(
+                alignment: _flipForward ? Alignment.centerRight : Alignment.centerLeft,
+                transform: Matrix4.identity()
+                  ..setEntry(3, 2, 0.002)
+                  ..rotateY(_flipForward
+                      ? (math.pi / 2) - (progress - 0.5) * math.pi
+                      : -(math.pi / 2) + (progress - 0.5) * math.pi),
+                child: _buildContentPane(renderSettings),
+              ),
+            // Front page (current content)
+            if (progress <= 0.5)
+              Transform(
+                alignment: _flipForward ? Alignment.centerLeft : Alignment.centerRight,
+                transform: Matrix4.identity()
+                  ..setEntry(3, 2, 0.002)
+                  ..rotateY(_flipForward
+                      ? progress * math.pi
+                      : -progress * math.pi),
+                child: _buildContentPane(renderSettings),
+              ),
+            // Crease shadow
+            Positioned(
+              left: _flipForward
+                  ? (progress <= 0.5 ? size.width * progress * 2 : null)
+                  : null,
+              right: _flipForward
+                  ? null
+                  : (progress <= 0.5 ? size.width * progress * 2 : null),
+              top: 0,
+              bottom: 0,
+              child: Container(
+                width: 4,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.black.withAlpha(60), Colors.transparent],
+                    begin: _flipForward ? Alignment.centerLeft : Alignment.centerRight,
+                    end: _flipForward ? Alignment.centerRight : Alignment.centerLeft,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildContentPane(RenderingSettings renderSettings) {
+    return Column(children: [
+      if (_editingEntryId != null)
+        TagEditor(key: ValueKey(_editingEntryId), entryId: _editingEntryId!, readOnly: _editorMode != EditorMode.source),
+      Expanded(child: MarkdownEditor(
+        controller: _contentController, externalMode: _editorMode,
+        titleSize: renderSettings.titleSize, bodySize: renderSettings.bodySize,
+        onChanged: (_) => _scheduleSave(),
+        onInsertImage: _editingEntryId != null ? () async => ImageService().pickAndSaveImage(ref, _editingEntryId!) : null,
+      )),
+    ]);
+  }
+
   @override
   Widget build(BuildContext context) {
     final dateStr = '${_currentDate.year}年${_currentDate.month}月${_currentDate.day}日';
@@ -249,8 +355,10 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
           ),
         ],
       ),
-      body: GestureDetector(
-        onHorizontalDragEnd: (details) {
+      body: _isFlipping
+          ? _buildFlipBody(renderSettings)
+          : GestureDetector(
+              onHorizontalDragEnd: (details) {
           if (details.primaryVelocity != null) {
             if (details.primaryVelocity! < -50) { _goToNextDate(); } else if (details.primaryVelocity! > 50) { _goToPreviousDate(); }
           }

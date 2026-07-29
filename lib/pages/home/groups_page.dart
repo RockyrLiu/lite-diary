@@ -126,12 +126,14 @@ class _GroupsPageState extends ConsumerState<GroupsPage> {
               data: (entries) {
                 if (entries.isEmpty) return const Center(child: Text('暂无日记'));
                 return ListView.builder(
+                  padding: const EdgeInsets.all(8),
                   itemCount: entries.length,
                   itemBuilder: (_, i) {
                     final e = entries[i];
-                    return ListTile(
-                      title: Text(e.title ?? '无标题', maxLines: 1),
-                      subtitle: Text('${_formatDate(e.date)}  ${e.content}', maxLines: 2, style: const TextStyle(fontSize: 12)),
+                    return _EntryCard(
+                      title: e.title ?? '无标题',
+                      date: _formatDate(e.date),
+                      content: e.content,
                       onTap: () => context.go('/entry/${e.id}'),
                     );
                   },
@@ -157,6 +159,32 @@ class _GroupsPageState extends ConsumerState<GroupsPage> {
             ListTile(leading: const Icon(Icons.delete, color: Colors.red), title: const Text('删除'), onTap: () { Navigator.pop(context); _deleteGroup(group); }),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _EntryCard extends StatelessWidget {
+  final String title;
+  final String date;
+  final String content;
+  final VoidCallback onTap;
+
+  const _EntryCard({
+    required this.title,
+    required this.date,
+    required this.content,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: ListTile(
+        title: Text(title, maxLines: 1, style: const TextStyle(fontWeight: FontWeight.w500)),
+        subtitle: Text('$date  $content', maxLines: 2, style: const TextStyle(fontSize: 12)),
+        onTap: onTap,
       ),
     );
   }
