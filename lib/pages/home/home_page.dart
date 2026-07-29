@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../providers/calendar_data_provider.dart';
-import '../../widgets/heatmap_widget.dart';
 import '../../widgets/calendar_widget.dart';
 import '../../widgets/search_widget.dart';
 import '../settings/display_page.dart';
@@ -82,14 +81,8 @@ class _CalendarViewPage extends ConsumerWidget {
       data: (counts) {
         if (counts.isEmpty) return const Center(child: Text('还没有日记，点击右下角 + 开始记录'));
         return SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(8),
-            child: Column(children: [
-              HeatmapWidget(data: HeatmapData(dateCounts: counts), year: now.year, onDateTap: (date) => _navigateToDate(context, date)),
-              const SizedBox(height: 16),
-              MonthCalendarWidget(data: CalendarData(dateCounts: counts), initialMonth: now, onDateTap: (date) => _navigateToDate(context, date)),
-            ]),
-          ),
+          padding: const EdgeInsets.all(8),
+          child: MonthCalendarWidget(data: CalendarData(dateCounts: counts), initialMonth: now, onDateTap: (date) => _navigateToDate(context, date)),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),

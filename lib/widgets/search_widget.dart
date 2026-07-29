@@ -14,47 +14,51 @@ class SearchWidget extends ConsumerStatefulWidget {
 
 class _SearchWidgetState extends ConsumerState<SearchWidget> {
   final TextEditingController _controller = TextEditingController();
-  List<Entry> _results = [];
   List<Entry> _allEntries = [];
-  bool _isSearching = false;
-  bool _loaded = false;
+  List<Entry> _results = [];
+  bool _open = false;
 
   AppDatabase get db => ref.read(databaseProvider);
 
   @override
   void dispose() { _controller.dispose(); super.dispose(); }
 
-  Future<void> _loadAll() async {
+  Future<void> _ensureLoaded() async {
+    if (_allEntries.isNotEmpty) return;
     _allEntries = await db.getAllEntries();
-    if (mounted) setState(() => _loaded = true);
+    if (mounted) setState(() {});
   }
 
-  void _onSearch(String query) {
-    if (query.isEmpty) { setState(() => _results = []); return; }
-    final q = query.toLowerCase();
+  void _onChanged(String q) {
+    if (q.isEmpty) { setState(() => _results = []); return; }
+    final lower = q.toLowerCase();
     setState(() {
-      _results = _allEntries.where((e) {
-        return (e.title?.toLowerCase().contains(q) ?? false) || e.content.toLowerCase().contains(q);
-      }).toList();
+      _results = _allEntries.where((e) =>
+        (e.title?.toLowerCase().contains(lower) ?? false) || e.content.toLowerCase().contains(lower)
+      ).toList();
     });
   }
 
-  @override
-  void initState() { super.initState(); _loadAll(); }
+  void _close() {
+    setState(() { _open = false; _results = []; });
+    _controller.clear();
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (!_isSearching) {
-      return IconButton(icon: const Icon(Icons.search), onPressed: () { setState(() => _isSearching = true); if (!_loaded) _loadAll(); });
+    if (!_open) {
+      return IconButton(icon: const Icon(Icons.search), onPressed: () { setState(() => _open = true); _ensureLoaded(); });
     }
 
     return Expanded(
       child: Row(children: [
-        Expanded(child: TextField(controller: _controller, autofocus: true, onChanged: _onSearch,
-          decoration: const InputDecoration(hintText: '搜索日记...', border: InputBorder.none))),
-        IconButton(icon: const Icon(Icons.close), onPressed: () { setState(() { _isSearching = false; _results = []; }); _controller.clear(); }),
+        Expanded(child: TextField(
+          controller: _controller, autofocus: true, onChanged: _onChanged,
+          decoration: const InputDecoration(hintText: '搜索...', border: InputBorder.none),
+        )),
+        IconButton(icon: const Icon(Icons.close), onPressed: _close),
         if (_results.isNotEmpty)
-          IconButton(icon: const Icon(Icons.list), tooltip: '搜索结果', onPressed: _showResults),
+          IconButton(icon: const Icon(Icons.list), tooltip: '${_results.length} 条结果', onPressed: _showResults),
       ]),
     );
   }
@@ -68,13 +72,13 @@ class _SearchWidgetState extends ConsumerState<SearchWidget> {
           Padding(padding: const EdgeInsets.all(8), child: Text('${_results.length} 条结果', style: const TextStyle(fontWeight: FontWeight.bold))),
           Expanded(child: ListView.builder(
             controller: scrollController, itemCount: _results.length,
-            itemBuilder: (ctx, index) {
-              final entry = _results[index];
-              final dateStr = '${entry.date.year}-${entry.date.month.toString().padLeft(2, '0')}-${entry.date.day.toString().padLeft(2, '0')}';
+            itemBuilder: (ctx, i) {
+              final e = _results[i];
+              final ds = '${e.date.year}-${e.date.month.toString().padLeft(2, '0')}-${e.date.day.toString().padLeft(2, '0')}';
               return ListTile(
-                title: Text(entry.title ?? '无标题', maxLines: 1),
-                subtitle: Text('$dateStr  ${entry.content}', maxLines: 2),
-                onTap: () { Navigator.pop(ctx); context.go('/entry/${entry.id}'); },
+                title: Text(e.title ?? '无标题', maxLines: 1),
+                subtitle: Text('$ds  ${e.content}', maxLines: 2),
+                onTap: () { Navigator.pop(ctx); context.go('/entry/${e.id}'); },
               );
             },
           )),

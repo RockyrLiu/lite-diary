@@ -236,7 +236,8 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
           }
         },
         child: Column(children: [
-          if (_editingEntryId != null) TagEditor(key: ValueKey(_editingEntryId), entryId: _editingEntryId!),
+          if (_editingEntryId != null && _editorMode == EditorMode.source)
+            TagEditor(key: ValueKey(_editingEntryId), entryId: _editingEntryId!),
           const Divider(height: 1),
           Expanded(child: MarkdownEditor(
             controller: _contentController, externalMode: _editorMode,
