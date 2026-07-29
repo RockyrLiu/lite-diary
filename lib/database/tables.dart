@@ -12,6 +12,8 @@ class Entries extends Table {
   DateTimeColumn get date => dateTime()();
   TextColumn get content => text().withDefault(const Constant(''))();
   IntColumn get groupId => integer().references(Groups, #id)();
+  TextColumn get weather => text().nullable()();
+  TextColumn get location => text().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 }

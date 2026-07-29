@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' hide isNull, isNotNull, Column;
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 
 import '../../database/database.dart';
 import '../../providers/database_provider.dart';
@@ -37,6 +39,8 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   bool _hasUnsavedChanges = false;
   bool _slideForward = true;
   String? _modifiedTime;
+  String _weather = '';
+  String _location = '';
 
   AppDatabase get db => ref.read(databaseProvider);
 
@@ -120,17 +124,39 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   Future<void> _saveNow() async {
     if (!_hasUnsavedChanges) return;
     final content = _contentController.text.trim();
-    if (content.isEmpty) { _hasUnsavedChanges = false; return; }
+    if (content.isEmpty) {
+      if (_editingEntryId != null) {
+        await db.deleteEntry(_editingEntryId!);
+        _editingEntryId = null;
+        final refreshedEntries = await db.getEntriesByDate(_currentDate);
+        if (mounted) {
+          setState(() {
+            _currentEntries = refreshedEntries;
+            _currentEntryIndex = 0;
+          });
+          _loadCurrentEntry();
+        }
+      }
+      _hasUnsavedChanges = false;
+      ref.invalidate(entriesByDateProvider(_currentDate));
+      ref.invalidate(allEntriesProvider);
+      ref.invalidate(calendarDateCountsProvider);
+      return;
+    }
     final title = _extractTitle(content);
     final now = DateTime.now();
     if (_editingEntryId != null) {
       await db.updateEntry(_editingEntryId!, EntriesCompanion(
         title: Value(title), content: Value(content), updatedAt: Value(now),
+        weather: Value(_weather.isEmpty ? null : _weather),
+        location: Value(_location.isEmpty ? null : _location),
       ));
     } else {
       final newId = await db.createEntry(EntriesCompanion(
         title: Value(title), date: Value(_currentDate), content: Value(content),
         groupId: Value(_currentGroupId), createdAt: Value(now), updatedAt: Value(now),
+        weather: Value(_weather.isEmpty ? null : _weather),
+        location: Value(_location.isEmpty ? null : _location),
       ));
       if (mounted) {
         final refreshedEntries = await db.getEntriesByDate(_currentDate);
@@ -159,11 +185,15 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
       _currentGroupId = entry.groupId;
       _hasUnsavedChanges = false;
       _modifiedTime = _timeStr(entry.updatedAt);
+      _weather = entry.weather ?? '';
+      _location = entry.location ?? '';
     } else {
       _contentController.clear();
       _editingEntryId = null;
       _hasUnsavedChanges = false;
       _modifiedTime = null;
+      _weather = '';
+      _location = '';
     }
   }
 
@@ -205,10 +235,20 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   void _startNewEntry() {
     _saveNow();
     setState(() { _contentController.clear(); _editingEntryId = null; _currentGroupId = _diaryGroupId; _hasUnsavedChanges = false; });
+    _weather = '';
+    _location = '';
+    _autoLocate();
   }
 
-  String _timeStr(DateTime t) =>
-      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+  String _timeStr(DateTime t) {
+    final hm = '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+    if (t.year == _currentDate.year && t.month == _currentDate.month && t.day == _currentDate.day) {
+      return hm;
+    }
+    final md = '${t.month.toString().padLeft(2, '0')}/${t.day.toString().padLeft(2, '0')}';
+    if (t.year == _currentDate.year) return '$md $hm';
+    return '${t.year}/$md $hm';
+  }
 
   int get _wordCount {
     var text = _contentController.text;
@@ -220,6 +260,130 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
     text = text.replaceAll(RegExp(r'`([^`]+)`'), r'$1');
     text = text.replaceAll(RegExp(r'\s'), '');
     return text.length;
+  }
+
+  Future<String> _fetchLocation() async {
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission != LocationPermission.whileInUse &&
+            permission != LocationPermission.always) {
+          return '';
+        }
+      }
+      if (permission == LocationPermission.deniedForever) return '';
+
+      final position = await Geolocator.getCurrentPosition(
+          locationSettings: AndroidSettings(
+              accuracy: LocationAccuracy.high, timeLimit: const Duration(seconds: 10)));
+      final placemarks = await placemarkFromCoordinates(
+          position.latitude, position.longitude);
+      if (placemarks.isEmpty) return '';
+      final p = placemarks.first;
+      return [p.locality, p.subLocality].where((e) => e != null && e.isNotEmpty).join('');
+    } catch (_) {
+      return '';
+    }
+  }
+
+  Future<void> _autoLocate() async {
+    final loc = await _fetchLocation();
+    if (loc.isNotEmpty && mounted) {
+      setState(() => _location = loc);
+    }
+  }
+
+  void _editMeta() {
+    final weatherCtrl = TextEditingController(text: _weather);
+    final locationCtrl = TextEditingController(text: _location);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('天气 / 地点'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Wrap(
+              spacing: 6,
+              children: ['晴', '多云', '阴', '雨', '雪', '雾', '风'].map((w) {
+                return ActionChip(
+                  label: Text(w, style: const TextStyle(fontSize: 13)),
+                  onPressed: () => weatherCtrl.text = w,
+                  visualDensity: VisualDensity.compact,
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: weatherCtrl,
+              decoration: const InputDecoration(labelText: '天气', isDense: true, border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: locationCtrl,
+                    decoration: const InputDecoration(labelText: '地点', isDense: true, border: OutlineInputBorder()),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.my_location, size: 20),
+                  tooltip: '获取位置',
+                  onPressed: () async {
+                    locationCtrl.text = '定位中...';
+                    final loc = await _fetchLocation();
+                    locationCtrl.text = loc.isEmpty ? '定位失败' : loc;
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          FilledButton(
+            onPressed: () async {
+              final w = weatherCtrl.text.trim();
+              final l = locationCtrl.text.trim();
+              Navigator.pop(ctx);
+              if (mounted) {
+                setState(() {
+                  _weather = w;
+                  _location = l;
+                });
+                // 同步更新内存中的条目对象，防止 loadCurrentEntry 覆盖
+                if (_editingEntryId != null &&
+                    _currentEntries.isNotEmpty &&
+                    _currentEntryIndex < _currentEntries.length) {
+                  final idx = _currentEntries.indexWhere((e) => e.id == _editingEntryId);
+                  if (idx >= 0) {
+                    _currentEntries[idx] = _currentEntries[idx].copyWith(
+                      weather: Value<String?>(w.isEmpty ? null : w),
+                      location: Value<String?>(l.isEmpty ? null : l),
+                    );
+                  }
+                }
+                if (_editingEntryId != null) {
+                  final now = DateTime.now();
+                  await db.updateEntry(_editingEntryId!, EntriesCompanion(
+                    weather: Value(w.isEmpty ? null : w),
+                    location: Value(l.isEmpty ? null : l),
+                    updatedAt: Value(now),
+                  ));
+                  _modifiedTime = _timeStr(now);
+                } else {
+                  _hasUnsavedChanges = true;
+                }
+              }
+            },
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _pickGroup() async {
@@ -255,13 +419,30 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
       if (_editingEntryId != null) '$_wordCount字',
       ?_modifiedTime,
     ];
-    if (parts.isEmpty) return const SizedBox.shrink();
+    if (parts.isEmpty && _weather.isEmpty && _location.isEmpty) {
+      return const SizedBox.shrink();
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Row(
-        children: [
-          Text(parts.join('  '), style: TextStyle(fontSize: 13, color: Colors.grey.shade500)),
-        ],
+      child: GestureDetector(
+        onTap: _editorMode == EditorMode.source ? _editMeta : null,
+        child: Row(
+          children: [
+            Text(parts.join('  '),
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+            if (_location.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              Text(_location,
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade500)),
+            ],
+            if (_weather.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              Text(_weather,
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade500)),
+            ],
+            const Spacer(),
+          ],
+        ),
       ),
     );
   }
@@ -298,8 +479,8 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
             tooltip: _editorMode == EditorMode.source ? '渲染' : '编辑',
             onPressed: () {
               final goingToPreview = _editorMode == EditorMode.source;
+              if (goingToPreview) { _saveTimer?.cancel(); _saveNow(); }
               setState(() { _editorMode = goingToPreview ? EditorMode.preview : EditorMode.source; });
-              if (goingToPreview && _contentController.text.trim().isNotEmpty) { _saveTimer?.cancel(); _saveNow(); }
             },
           ),
         ],

@@ -370,6 +370,12 @@ class _ExportPageState extends ConsumerState<ExportPage> {
       if (tags != null && tags.isNotEmpty) {
         buffer.writeln('> tags: ${tags.join(', ')}');
       }
+      if (entry.weather != null && entry.weather!.isNotEmpty) {
+        buffer.writeln('> weather: ${entry.weather}');
+      }
+      if (entry.location != null && entry.location!.isNotEmpty) {
+        buffer.writeln('> location: ${entry.location}');
+      }
       buffer.writeln();
       buffer.writeln(content);
       buffer.writeln();
