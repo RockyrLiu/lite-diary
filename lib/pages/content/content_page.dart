@@ -24,18 +24,18 @@ class ContentPage extends ConsumerStatefulWidget {
   ConsumerState<ContentPage> createState() => _ContentPageState();
 }
 
-class _ContentPageState extends ConsumerState<ContentPage> {
+class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingObserver {
   final TextEditingController _contentController = TextEditingController();
   Timer? _saveTimer;
   DateTime _currentDate = DateTime.now();
   int _currentEntryIndex = 0;
   List<Entry> _currentEntries = [];
   int? _editingEntryId;
-  int _currentGroupId = 1; // 默认日记分组
+  int _currentGroupId = 1;
   EditorMode _editorMode = EditorMode.preview;
   bool _hasUnsavedChanges = false;
+  bool _initialized = false;
 
-  /// 从正文首行提取标题：若以 # 开头且非空，则截取标题；否则返回 null
   String? _extractTitle(String content) {
     final firstLine = content.split('\n').first.trim();
     if (firstLine.startsWith('#') && firstLine.length > 1) {
@@ -46,9 +46,24 @@ class _ContentPageState extends ConsumerState<ContentPage> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      _saveTimer?.cancel();
+      _saveNow();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _saveTimer?.cancel();
-    if (_hasUnsavedChanges) _saveNow();
+    _saveNow();
     _contentController.dispose();
     super.dispose();
   }
@@ -99,27 +114,51 @@ class _ContentPageState extends ConsumerState<ContentPage> {
     ref.invalidate(calendarDateCountsProvider);
   }
 
-  List<DateTime> _getAllEntryDates() {
-    final entriesAsync = ref.read(allEntriesProvider);
-    final entries = entriesAsync.valueOrNull;
-    if (entries == null) return [];
-    return entries
-        .map((e) => DateTime(e.date.year, e.date.month, e.date.day))
-        .toSet()
-        .toList()
-      ..sort();
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_initialized) return;
+    _initialized = true;
+
+    final targetDate = widget.initialDate ?? DateTime.now();
+    _currentDate = DateTime(targetDate.year, targetDate.month, targetDate.day);
+
+    if (widget.entryId != null) {
+      _loadEntryById(widget.entryId!);
+    } else if (widget.isNew) {
+      _startNewEntry();
+    } else {
+      _loadEntriesForDate(_currentDate);
+    }
+  }
+
+  void _loadEntryById(int id) {
+    ref.read(entryByIdProvider(id)).whenData((entry) {
+      if (entry != null && mounted) {
+        _currentGroupId = entry.groupId;
+        final date = DateTime(entry.date.year, entry.date.month, entry.date.day);
+        _loadEntriesForDate(date);
+        ref.read(entriesByDateProvider(date)).whenData((entries) {
+          final idx = entries.indexWhere((e) => e.id == entry.id);
+          if (idx >= 0 && mounted) {
+            setState(() => _currentEntryIndex = idx);
+            _loadCurrentEntry();
+          }
+        });
+      }
+    });
   }
 
   void _loadEntriesForDate(DateTime date) {
-    setState(() {
-      _currentDate = date;
-      _currentEntryIndex = 0;
-      _editingEntryId = null;
-    });
     final entriesAsync = ref.read(entriesByDateProvider(date));
     entriesAsync.whenData((entries) {
       if (mounted) {
-        setState(() => _currentEntries = entries);
+        setState(() {
+          _currentDate = date;
+          _currentEntries = entries;
+          _currentEntryIndex = 0;
+          _editingEntryId = null;
+        });
         _loadCurrentEntry();
       }
     });
@@ -158,20 +197,14 @@ class _ContentPageState extends ConsumerState<ContentPage> {
   void _goToNextEntry() {
     _saveNow();
     if (_currentEntryIndex < _currentEntries.length - 1) {
-      setState(() {
-        _currentEntryIndex++;
-        _loadCurrentEntry();
-      });
+      setState(() { _currentEntryIndex++; _loadCurrentEntry(); });
     }
   }
 
   void _goToPreviousEntry() {
     _saveNow();
     if (_currentEntryIndex > 0) {
-      setState(() {
-        _currentEntryIndex--;
-        _loadCurrentEntry();
-      });
+      setState(() { _currentEntryIndex--; _loadCurrentEntry(); });
     }
   }
 
@@ -182,6 +215,13 @@ class _ContentPageState extends ConsumerState<ContentPage> {
       _editingEntryId = null;
       _hasUnsavedChanges = false;
     });
+  }
+
+  List<DateTime> _getAllEntryDates() {
+    final entriesAsync = ref.read(allEntriesProvider);
+    final entries = entriesAsync.valueOrNull;
+    if (entries == null) return [];
+    return entries.map((e) => DateTime(e.date.year, e.date.month, e.date.day)).toSet().toList()..sort();
   }
 
   Future<void> _pickGroup() async {
@@ -199,28 +239,25 @@ class _ContentPageState extends ConsumerState<ContentPage> {
                 children: [
                   const Text('选择分组', style: TextStyle(fontWeight: FontWeight.bold)),
                   const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.add),
-                    onPressed: () async {
-                      final controller = TextEditingController();
-                      final name = await showDialog<String>(
-                        context: ctx,
-                        builder: (dctx) => AlertDialog(
-                          title: const Text('新建分组'),
-                          content: TextField(controller: controller, autofocus: true, decoration: const InputDecoration(hintText: '分组名称')),
-                          actions: [
-                            TextButton(onPressed: () => Navigator.pop(dctx), child: const Text('取消')),
-                            TextButton(onPressed: () => Navigator.pop(dctx, controller.text), child: const Text('确定')),
-                          ],
-                        ),
-                      );
-                      if (name != null && name.trim().isNotEmpty) {
-                        await ref.read(databaseProvider).createGroup(GroupsCompanion(name: Value(name.trim())));
-                        ref.invalidate(allGroupsProvider);
-                        if (ctx.mounted) Navigator.pop(ctx);
-                      }
-                    },
-                  ),
+                  IconButton(icon: const Icon(Icons.add), onPressed: () async {
+                    final ctrl = TextEditingController();
+                    final name = await showDialog<String>(
+                      context: ctx,
+                      builder: (dctx) => AlertDialog(
+                        title: const Text('新建分组'),
+                        content: TextField(controller: ctrl, autofocus: true, decoration: const InputDecoration(hintText: '分组名称')),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(dctx), child: const Text('取消')),
+                          TextButton(onPressed: () => Navigator.pop(dctx, ctrl.text), child: const Text('确定')),
+                        ],
+                      ),
+                    );
+                    if (name != null && name.trim().isNotEmpty) {
+                      await ref.read(databaseProvider).createGroup(GroupsCompanion(name: Value(name.trim())));
+                      ref.invalidate(allGroupsProvider);
+                      if (ctx.mounted) Navigator.pop(ctx);
+                    }
+                  }),
                 ],
               ),
             ),
@@ -246,34 +283,6 @@ class _ContentPageState extends ConsumerState<ContentPage> {
     }
   }
 
-  @override
-  void initState() {
-    super.initState();
-    final targetDate = widget.initialDate ?? DateTime.now();
-    _currentDate = DateTime(targetDate.year, targetDate.month, targetDate.day);
-
-    if (widget.entryId != null) {
-      ref.read(entryByIdProvider(widget.entryId!)).whenData((entry) {
-        if (entry != null && mounted) {
-          _currentGroupId = entry.groupId;
-          final date = DateTime(entry.date.year, entry.date.month, entry.date.day);
-          _loadEntriesForDate(date);
-          ref.read(entriesByDateProvider(date)).whenData((entries) {
-            final idx = entries.indexWhere((e) => e.id == entry.id);
-            if (idx >= 0 && mounted) {
-              setState(() => _currentEntryIndex = idx);
-              _loadCurrentEntry();
-            }
-          });
-        }
-      });
-    } else if (widget.isNew) {
-      _startNewEntry();
-    } else {
-      _loadEntriesForDate(_currentDate);
-    }
-  }
-
   void _onContentChanged(String value) {
     _scheduleSave();
   }
@@ -285,13 +294,11 @@ class _ContentPageState extends ConsumerState<ContentPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Column(
-          children: [
-            Text(dateStr),
-            if (_currentEntries.length > 1)
-              Text('${_currentEntryIndex + 1}/${_currentEntries.length}', style: const TextStyle(fontSize: 12)),
-          ],
-        ),
+        title: Column(children: [
+          Text(dateStr),
+          if (_currentEntries.length > 1)
+            Text('${_currentEntryIndex + 1}/${_currentEntries.length}', style: const TextStyle(fontSize: 12)),
+        ]),
         actions: [
           IconButton(icon: const Icon(Icons.folder), tooltip: '分组', onPressed: _pickGroup),
           TextButton.icon(
@@ -317,39 +324,32 @@ class _ContentPageState extends ConsumerState<ContentPage> {
       body: GestureDetector(
         onHorizontalDragEnd: (details) {
           if (details.primaryVelocity != null) {
-            if (details.primaryVelocity! < -50) {
-              _goToNextDate();
-            } else if (details.primaryVelocity! > 50) {
-              _goToPreviousDate();
-            }
+            if (details.primaryVelocity! < -50) { _goToNextDate(); }
+            else if (details.primaryVelocity! > 50) { _goToPreviousDate(); }
           }
         },
-        child: Column(
-          children: [
-            if (_editingEntryId != null)
-              TagEditor(key: ValueKey(_editingEntryId), entryId: _editingEntryId!),
-            const Divider(height: 1),
-            Expanded(
-              child: MarkdownEditor(
-                controller: _contentController,
-                externalMode: _editorMode,
-                titleSize: renderSettings.titleSize,
-                bodySize: renderSettings.bodySize,
-                onToggleMode: () {
-                  setState(() {
-                    _editorMode = _editorMode == EditorMode.source ? EditorMode.preview : EditorMode.source;
-                  });
-                },
-                onChanged: _onContentChanged,
-                onInsertImage: _editingEntryId != null
-                    ? () async {
-                        return ImageService().pickAndSaveImage(ref, _editingEntryId!);
-                      }
-                    : null,
-              ),
+        child: Column(children: [
+          if (_editingEntryId != null)
+            TagEditor(key: ValueKey(_editingEntryId), entryId: _editingEntryId!),
+          const Divider(height: 1),
+          Expanded(
+            child: MarkdownEditor(
+              controller: _contentController,
+              externalMode: _editorMode,
+              titleSize: renderSettings.titleSize,
+              bodySize: renderSettings.bodySize,
+              onToggleMode: () {
+                setState(() {
+                  _editorMode = _editorMode == EditorMode.source ? EditorMode.preview : EditorMode.source;
+                });
+              },
+              onChanged: _onContentChanged,
+              onInsertImage: _editingEntryId != null
+                  ? () async => ImageService().pickAndSaveImage(ref, _editingEntryId!)
+                  : null,
             ),
-          ],
-        ),
+          ),
+        ]),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _startNewEntry,

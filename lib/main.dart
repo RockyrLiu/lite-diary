@@ -32,11 +32,12 @@ class DiaryLiteApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
     final colorIndex = ref.watch(themeColorIndexProvider);
+    final seed = AppTheme.seedColorFromIndex(colorIndex);
 
     return MaterialApp.router(
       title: 'Diary Lite',
-      theme: AppTheme.lightTheme(colorIndex),
-      darkTheme: AppTheme.darkTheme(colorIndex),
+      theme: AppTheme.lightTheme(seed),
+      darkTheme: AppTheme.darkTheme(seed),
       themeMode: themeMode,
       routerConfig: router,
     );

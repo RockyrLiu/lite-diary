@@ -3,23 +3,31 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.light);
-
-/// 0=浅蓝, 1=白色, 2=浅绿
 final themeColorIndexProvider = StateProvider<int>((ref) => 0);
 
 class ThemeColors {
-  static const colors = [Colors.lightBlue, Colors.grey, Colors.teal];
-  static const names = ['浅蓝', '白色', '浅绿'];
+  // 预置色板 — seedColor 列表，0 号位留空给"系统默认"
+  static const presetColors = <Color>[
+    Colors.transparent, // 占位，表示系统默认
+    Color(0xFF2196F3),  // 蓝色
+    Color(0xFF607D8B),  // 蓝灰
+    Color(0xFF4CAF50),  // 绿色
+    Color(0xFF795548),  // 棕色
+    Color(0xFF9C27B0),  // 紫色
+    Color(0xFFE91E63),  // 粉色
+    Color(0xFFFF9800),  // 橙色
+  ];
+
+  static const presetNames = ['自动', '蓝色', '蓝灰', '绿色', '棕色', '紫色', '粉色', '橙色'];
 }
 
 class AppTheme {
-  static Color _seedColor(int index) => ThemeColors.colors[index.clamp(0, 2)];
-
-  static ThemeData lightTheme(int colorIndex) {
-    final seed = _seedColor(colorIndex);
-    final isWhite = colorIndex == 1;
+  static ThemeData lightTheme(Color? seed) {
     return ThemeData(
-      colorScheme: ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.light),
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: seed ?? Colors.lightBlue,
+        brightness: Brightness.light,
+      ),
       useMaterial3: true,
       scaffoldBackgroundColor: Colors.white,
       appBarTheme: const AppBarTheme(
@@ -29,28 +37,30 @@ class AppTheme {
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: Colors.white,
-        selectedItemColor: isWhite ? Colors.blueGrey : seed,
+        selectedItemColor: seed ?? Colors.lightBlue,
         unselectedItemColor: Colors.grey,
       ),
     );
   }
 
-  static ThemeData darkTheme(int colorIndex) {
+  static ThemeData darkTheme(Color? seed) {
     return ThemeData(
-      colorScheme: ColorScheme.fromSeed(seedColor: _seedColor(colorIndex), brightness: Brightness.dark),
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: seed ?? Colors.lightBlue,
+        brightness: Brightness.dark,
+      ),
       useMaterial3: true,
     );
   }
 
   static Future<ThemeMode> loadThemeMode() async {
     final prefs = await SharedPreferences.getInstance();
-    final mode = prefs.getString('theme_mode') ?? 'light';
-    return mode == 'dark' ? ThemeMode.dark : ThemeMode.light;
+    return prefs.getString('theme_mode') == 'dark' ? ThemeMode.dark : ThemeMode.light;
   }
 
   static Future<int> loadColorIndex() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt('theme_color_index') ?? 0;
+    return prefs.getInt('theme_color_index') ?? 1; // 默认蓝色 = index 1
   }
 
   static Future<void> saveThemeMode(ThemeMode mode) async {
@@ -61,5 +71,11 @@ class AppTheme {
   static Future<void> saveColorIndex(int index) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('theme_color_index', index);
+  }
+
+  /// 获取当前选中的 seedColor（return null if auto/system default）
+  static Color? seedColorFromIndex(int index) {
+    if (index <= 0 || index >= ThemeColors.presetColors.length) return null;
+    return ThemeColors.presetColors[index];
   }
 }

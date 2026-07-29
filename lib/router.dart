@@ -9,8 +9,7 @@ import 'pages/settings/settings_page.dart';
 import 'pages/settings/export_page.dart';
 import 'pages/settings/about_page.dart';
 import 'pages/settings/display_page.dart';
-
-final Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
+import 'services/tab_notifier.dart';
 
 GoRouter buildRouter({
   bool showHome = true,
@@ -29,17 +28,7 @@ GoRouter buildRouter({
   }
   if (showContent) {
     branches.add(StatefulShellBranch(routes: [
-      GoRoute(path: '/content', builder: (context, state) {
-        final dateStr = state.uri.queryParameters['date'];
-        DateTime? date;
-        if (dateStr != null) {
-          final parts = dateStr.split('-');
-          if (parts.length == 3) {
-            date = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
-          }
-        }
-        return ContentPage(key: ValueKey('content-${dateStr ?? 'today'}'), initialDate: date);
-      }),
+      GoRoute(path: '/content', builder: (context, state) => const ContentPage(key: ValueKey('content-default'))),
       GoRoute(path: '/content/date/:dateStr', builder: (context, state) {
         final dateStr = state.pathParameters['dateStr']!;
         final parts = dateStr.split('-');
@@ -50,10 +39,10 @@ GoRouter buildRouter({
         return ContentPage(key: ValueKey('content-$dateStr'), initialDate: date);
       }),
       GoRoute(path: '/entry/:id', builder: (context, state) {
-        final id = int.tryParse(state.pathParameters['id'] ?? '');
-        return ContentPage(entryId: id);
+        final id = state.pathParameters['id']!;
+        return ContentPage(key: ValueKey('entry-$id'), entryId: int.tryParse(id));
       }),
-      GoRoute(path: '/entry/new', builder: (context, state) => const ContentPage(isNew: true)),
+      GoRoute(path: '/entry/new', builder: (context, state) => const ContentPage(key: ValueKey('entry-new'), isNew: true)),
     ]));
     navItems.add(const BottomNavigationBarItem(icon: Icon(Icons.edit_note), label: '内容'));
   }
@@ -83,6 +72,7 @@ GoRouter buildRouter({
 
   return GoRouter(
     initialLocation: '/',
+    refreshListenable: tabVisibilityNotifier,
     routes: [
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
@@ -105,7 +95,7 @@ GoRouter buildRouter({
 GoRouter router = buildRouter();
 
 Future<void> reloadRouter() async {
-  final prefs = await _prefs;
+  final prefs = await SharedPreferences.getInstance();
   router = buildRouter(
     showHome: prefs.getBool('tab_home') ?? true,
     showContent: prefs.getBool('tab_content') ?? true,
