@@ -32,6 +32,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   List<Entry> _currentEntries = [];
   int? _editingEntryId;
   int _currentGroupId = 1;
+  int _diaryGroupId = 1;
   EditorMode _editorMode = EditorMode.preview;
   bool _hasUnsavedChanges = false;
 
@@ -56,6 +57,14 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   Future<void> _init() async {
     final targetDate = widget.initialDate ?? DateTime.now();
     _currentDate = DateTime(targetDate.year, targetDate.month, targetDate.day);
+
+    final groups = await db.getAllGroups();
+    final diaryGroup = groups.firstWhere(
+      (g) => g.name == '日记',
+      orElse: () => groups.isNotEmpty ? groups.first : Group(id: 1, name: '日记', sortOrder: 0),
+    );
+    _diaryGroupId = diaryGroup.id;
+    _currentGroupId = _diaryGroupId;
 
     if (widget.entryId != null) {
       final entry = await db.getEntryById(widget.entryId!);
@@ -184,7 +193,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
 
   void _startNewEntry() {
     _saveNow();
-    setState(() { _contentController.clear(); _editingEntryId = null; _hasUnsavedChanges = false; });
+    setState(() { _contentController.clear(); _editingEntryId = null; _currentGroupId = _diaryGroupId; _hasUnsavedChanges = false; });
   }
 
   Future<void> _pickGroup() async {

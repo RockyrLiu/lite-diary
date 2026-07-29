@@ -56,13 +56,13 @@ void main() {
       expect(await db.getGroupById(groupId), isNull);
     });
 
-    test('insertDefaultGroups 插入三个默认分组', () async {
+    test('insertDefaultGroups 插入默认分组', () async {
       await db.insertDefaultGroups();
 
       final groups = await db.getAllGroups();
-      expect(groups.length, 3);
+      expect(groups.length, 2);
       final names = groups.map((g) => g.name).toSet();
-      expect(names, containsAll(['日记', '随笔', '诗词']));
+      expect(names, containsAll(['日记', '诗词']));
     });
 
     test('insertDefaultGroups 多次调用不重复插入', () async {
@@ -70,7 +70,7 @@ void main() {
       await db.insertDefaultGroups();
 
       final groups = await db.getAllGroups();
-      expect(groups.length, 3);
+      expect(groups.length, 2);
     });
   });
 }

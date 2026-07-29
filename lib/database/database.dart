@@ -187,11 +187,7 @@ class AppDatabase extends _$AppDatabase {
       mode: InsertMode.insertOrIgnore,
     );
     await into(groups).insert(
-      GroupsCompanion(name: const Value('随笔'), sortOrder: const Value(1)),
-      mode: InsertMode.insertOrIgnore,
-    );
-    await into(groups).insert(
-      GroupsCompanion(name: const Value('诗词'), sortOrder: const Value(2)),
+      GroupsCompanion(name: const Value('诗词'), sortOrder: const Value(1)),
       mode: InsertMode.insertOrIgnore,
     );
   }

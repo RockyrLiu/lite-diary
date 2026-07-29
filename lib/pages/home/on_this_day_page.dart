@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
@@ -16,7 +14,6 @@ class OnThisDayPage extends ConsumerStatefulWidget {
 }
 
 class _OnThisDayPageState extends ConsumerState<OnThisDayPage> {
-  int _currentIndex = 0;
   List<Entry> _entries = [];
 
   void _loadEntries() async {
@@ -37,29 +34,8 @@ class _OnThisDayPageState extends ConsumerState<OnThisDayPage> {
       }).toList();
       matching.sort((a, b) => b.date.compareTo(a.date));
 
-      if (mounted) {
-        final random = matching.isNotEmpty ? Random() : null;
-        if (random != null && matching.length > 1) {
-          matching.shuffle(random);
-        }
-        setState(() {
-          _entries = matching;
-          _currentIndex = 0;
-        });
-      }
+      if (mounted) setState(() => _entries = matching);
     });
-  }
-
-  void _nextEntry() {
-    if (_currentIndex < _entries.length - 1) {
-      setState(() => _currentIndex++);
-    }
-  }
-
-  void _previousEntry() {
-    if (_currentIndex > 0) {
-      setState(() => _currentIndex--);
-    }
   }
 
   @override
@@ -76,43 +52,30 @@ class _OnThisDayPageState extends ConsumerState<OnThisDayPage> {
       appBar: AppBar(title: Text('${today.month}月${today.day}日 — 那年今日')),
       body: _entries.isEmpty
           ? const Center(child: Text('往年的今天还没有日记'))
-          : Column(
-              children: [
-                if (_entries.length > 1)
-                  Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        IconButton(icon: const Icon(Icons.arrow_back), onPressed: _previousEntry),
-                        Text('${_currentIndex + 1} / ${_entries.length}'),
-                        IconButton(icon: const Icon(Icons.arrow_forward), onPressed: _nextEntry),
-                      ],
-                    ),
-                  ),
-                Expanded(
-                  child: _buildEntryView(_entries[_currentIndex]),
-                ),
-              ],
+          : ListView.builder(
+              padding: const EdgeInsets.only(bottom: 32),
+              itemCount: _entries.length,
+              itemBuilder: (context, index) => _buildEntryCard(_entries[index]),
             ),
     );
   }
 
-  Widget _buildEntryView(Entry entry) {
+  Widget _buildEntryCard(Entry entry) {
     final dateStr = '${entry.date.year}年${entry.date.month}月${entry.date.day}日';
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (entry.title != null && entry.title!.isNotEmpty)
-            Text(entry.title!, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-          Text(dateStr, style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
-          const Divider(),
-          Expanded(
-            child: Markdown(data: entry.content, selectable: true),
-          ),
-        ],
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (entry.title != null && entry.title!.isNotEmpty)
+              Text(entry.title!, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(dateStr, style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+            const Divider(),
+            Markdown(data: entry.content, selectable: true, shrinkWrap: true, physics: const NeverScrollableScrollPhysics()),
+          ],
+        ),
       ),
     );
   }
