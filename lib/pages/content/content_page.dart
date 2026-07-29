@@ -36,6 +36,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   EditorMode _editorMode = EditorMode.preview;
   bool _hasUnsavedChanges = false;
   bool _slideForward = true;
+  String? _modifiedTime;
 
   AppDatabase get db => ref.read(databaseProvider);
 
@@ -144,6 +145,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
       }
     }
     _hasUnsavedChanges = false;
+    _modifiedTime = _timeStr(now);
     ref.invalidate(entriesByDateProvider(_currentDate));
     ref.invalidate(allEntriesProvider);
     ref.invalidate(calendarDateCountsProvider);
@@ -156,10 +158,12 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
       _editingEntryId = entry.id;
       _currentGroupId = entry.groupId;
       _hasUnsavedChanges = false;
+      _modifiedTime = _timeStr(entry.updatedAt);
     } else {
       _contentController.clear();
       _editingEntryId = null;
       _hasUnsavedChanges = false;
+      _modifiedTime = null;
     }
   }
 
@@ -203,6 +207,21 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
     setState(() { _contentController.clear(); _editingEntryId = null; _currentGroupId = _diaryGroupId; _hasUnsavedChanges = false; });
   }
 
+  String _timeStr(DateTime t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+  int get _wordCount {
+    var text = _contentController.text;
+    text = text.replaceAll(RegExp(r'!\[.*?\]\(.*?\)'), '');
+    text = text.replaceAll(RegExp(r'^#{1,6}\s', multiLine: true), '');
+    text = text.replaceAll(RegExp(r'\*\*([^*]+)\*\*'), r'$1');
+    text = text.replaceAll(RegExp(r'\*([^*]+)\*'), r'$1');
+    text = text.replaceAll(RegExp(r'~~([^~]+)~~'), r'$1');
+    text = text.replaceAll(RegExp(r'`([^`]+)`'), r'$1');
+    text = text.replaceAll(RegExp(r'\s'), '');
+    return text.length;
+  }
+
   Future<void> _pickGroup() async {
     final groups = await db.getAllGroups();
     if (!mounted) return;
@@ -229,6 +248,22 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
       setState(() => _currentGroupId = selected);
       if (_editingEntryId != null) { await db.updateEntry(_editingEntryId!, EntriesCompanion(groupId: Value(selected), updatedAt: Value(DateTime.now()))); ref.invalidate(allEntriesProvider); }
     }
+  }
+
+  Widget _buildStatusBar() {
+    final parts = <String>[
+      if (_editingEntryId != null) '$_wordCount字',
+      ?_modifiedTime,
+    ];
+    if (parts.isEmpty) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Row(
+        children: [
+          Text(parts.join('  '), style: TextStyle(fontSize: 13, color: Colors.grey.shade500)),
+        ],
+      ),
+    );
   }
 
   Widget _buildContentPane(RenderingSettings renderSettings) {
@@ -269,7 +304,10 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
           ),
         ],
       ),
-      body: GestureDetector(
+      body: Column(
+        children: [
+          Expanded(
+            child: GestureDetector(
         onHorizontalDragEnd: (details) {
           if (details.primaryVelocity != null) {
             if (details.primaryVelocity! < -50) { _goToNextDate(); } else if (details.primaryVelocity! > 50) { _goToPreviousDate(); }
@@ -294,6 +332,10 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
           ),
         ),
       ),
+    ),
+    _buildStatusBar(),
+      ],
+    ),
       floatingActionButton: FloatingActionButton(
         onPressed: _startNewEntry,
         tooltip: '补记',
