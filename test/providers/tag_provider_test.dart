@@ -34,17 +34,6 @@ void main() {
       expect(tags[1].name, 'C');
     });
 
-    test('tagByIdProvider 按 id 查找', () async {
-      final container = createContainer();
-      final db = container.read(databaseProvider);
-
-      final id = await db.createTag(TagsCompanion(name: const Value('旅行')));
-
-      final tag = await container.read(tagByIdProvider(id).future);
-      expect(tag, isNotNull);
-      expect(tag!.name, '旅行');
-    });
-
     test('tagsForEntryProvider 获取条目的所有标签', () async {
       final container = createContainer();
       final db = container.read(databaseProvider);

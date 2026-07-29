@@ -9,7 +9,4 @@ Future<List<Group>> allGroups(AllGroupsRef ref) {
   return ref.watch(databaseProvider).getAllGroups();
 }
 
-@riverpod
-Future<Group?> groupById(GroupByIdRef ref, int id) {
-  return ref.watch(databaseProvider).getGroupById(id);
-}
+

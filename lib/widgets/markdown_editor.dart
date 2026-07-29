@@ -9,7 +9,6 @@ class MarkdownEditor extends StatefulWidget {
   final String? initialValue;
   final Future<String?> Function()? onInsertImage;
   final EditorMode? externalMode;
-  final VoidCallback? onToggleMode;
   final double titleSize;
   final double bodySize;
 
@@ -20,7 +19,6 @@ class MarkdownEditor extends StatefulWidget {
     this.initialValue,
     this.onInsertImage,
     this.externalMode,
-    this.onToggleMode,
     this.titleSize = 24,
     this.bodySize = 16,
   });

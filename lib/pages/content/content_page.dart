@@ -179,6 +179,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
 
   Future<void> _pickGroup() async {
     final groups = await db.getAllGroups();
+    if (!mounted) return;
     final selected = await showModalBottomSheet<int>(
       context: context,
       builder: (ctx) => SafeArea(
@@ -242,7 +243,6 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
           Expanded(child: MarkdownEditor(
             controller: _contentController, externalMode: _editorMode,
             titleSize: renderSettings.titleSize, bodySize: renderSettings.bodySize,
-            onToggleMode: () { setState(() { _editorMode = _editorMode == EditorMode.source ? EditorMode.preview : EditorMode.source; }); },
             onChanged: (_) => _scheduleSave(),
             onInsertImage: _editingEntryId != null ? () async => ImageService().pickAndSaveImage(ref, _editingEntryId!) : null,
           )),

@@ -70,6 +70,7 @@ class _GroupsPageState extends ConsumerState<GroupsPage> {
     );
     if (confirm == true) {
       await ref.read(databaseProvider).deleteGroup(group.id);
+      if (!mounted) return;
       ref.invalidate(allGroupsProvider);
       if (_selectedGroupId == group.id) setState(() => _selectedGroupId = null);
     }

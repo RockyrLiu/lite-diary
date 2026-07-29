@@ -9,10 +9,7 @@ Future<List<Tag>> allTags(AllTagsRef ref) {
   return ref.watch(databaseProvider).getAllTags();
 }
 
-@riverpod
-Future<Tag?> tagById(TagByIdRef ref, int id) {
-  return ref.watch(databaseProvider).getTagById(id);
-}
+
 
 @riverpod
 Future<List<Tag>> tagsForEntry(TagsForEntryRef ref, int entryId) {

@@ -34,20 +34,5 @@ void main() {
       expect(groups.last.name, 'B');
     });
 
-    test('groupByIdProvider 按 id 查找', () async {
-      final container = createContainer();
-      final db = container.read(databaseProvider);
-
-      final id = await db.createGroup(GroupsCompanion(name: const Value('旅行')));
-
-      final group = await container.read(groupByIdProvider(id).future);
-      expect(group, isNotNull);
-      expect(group!.name, '旅行');
-    });
-
-    test('groupByIdProvider 不存在时返回 null', () async {
-      final container = createContainer();
-      expect(await container.read(groupByIdProvider(999).future), isNull);
-    });
   });
 }

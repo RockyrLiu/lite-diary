@@ -91,7 +91,7 @@ final routerProvider = StateProvider<GoRouter>((ref) {
   return _buildRouter();
 });
 
-Future<void> reloadRouter(dynamic ref) async {
+Future<void> reloadRouter(WidgetRef ref) async {
   final prefs = await SharedPreferences.getInstance();
   ref.read(routerProvider.notifier).state = _buildRouter(
     showHome: prefs.getBool('tab_home') ?? true,

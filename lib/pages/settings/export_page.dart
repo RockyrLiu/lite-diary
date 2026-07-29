@@ -22,12 +22,14 @@ class _ExportPageState extends ConsumerState<ExportPage> {
     try {
       poetryGroup = groups.firstWhere((g) => g.name == '诗词');
     } catch (_) {
+      if (!mounted) return;
       setState(() => _message = '未找到"诗词"分组，请先创建');
       return;
     }
 
     final entries = await db.getEntriesByGroup(poetryGroup.id);
     if (entries.isEmpty) {
+      if (!mounted) return;
       setState(() => _message = '"诗词"分组下暂无日记');
       return;
     }
@@ -61,6 +63,7 @@ class _ExportPageState extends ConsumerState<ExportPage> {
       buffer.writeln();
     }
 
+    if (!mounted) return;
     setState(() => _message = '诗稿已生成：\n\n${buffer.toString()}');
   }
 
@@ -68,6 +71,7 @@ class _ExportPageState extends ConsumerState<ExportPage> {
     final db = ref.read(databaseProvider);
     final entries = await db.getAllEntries();
     if (entries.isEmpty) {
+      if (!mounted) return;
       setState(() => _message = '暂无日记可导出');
       return;
     }
@@ -88,6 +92,7 @@ class _ExportPageState extends ConsumerState<ExportPage> {
       buffer.writeln();
     }
 
+    if (!mounted) return;
     setState(() => _message = '已导出 ${entries.length} 篇日记：\n\n${buffer.toString()}');
   }
 

@@ -5,11 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/theme_service.dart';
 import '../../services/rendering_settings.dart';
 import '../../services/tab_notifier.dart';
+import '../../widgets/section_header.dart';
 import '../../widgets/color_scheme_box.dart';
 
-final tabVisibilityProvider = StateProvider<Map<String, bool>>((ref) {
-  return {'首页': true, '内容': true, 'LLM': true, '设置': true};
-});
 
 final homePageOrderProvider = StateProvider<List<int>>((ref) => const [0, 1, 2]);
 
@@ -44,6 +42,7 @@ class _DisplayPageState extends ConsumerState<DisplayPage> {
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       _tabs = {
         '首页': prefs.getBool('tab_home') ?? true,
@@ -55,7 +54,6 @@ class _DisplayPageState extends ConsumerState<DisplayPage> {
       _pageOrder = order != null && order.length == 3 ? order.map(int.parse).toList() : [0, 1, 2];
       _loaded = true;
     });
-    ref.read(tabVisibilityProvider.notifier).state = Map.from(_tabs);
   }
 
   void _movePage(int from, bool down) {
@@ -72,8 +70,8 @@ class _DisplayPageState extends ConsumerState<DisplayPage> {
     final prefs = await SharedPreferences.getInstance();
     final prefKey = {'首页': 'tab_home', '内容': 'tab_content', 'LLM': 'tab_llm', '设置': 'tab_settings'}[key]!;
     await prefs.setBool(prefKey, value);
+    if (!mounted) return;
     setState(() => _tabs[key] = value);
-    ref.read(tabVisibilityProvider.notifier).state = Map.from(_tabs);
     tabVisibilityNotifier.notify();
   }
 
@@ -88,7 +86,7 @@ class _DisplayPageState extends ConsumerState<DisplayPage> {
       appBar: AppBar(title: const Text('显示控制')),
       body: ListView(
         children: [
-          const _SectionHeader('主题色彩'),
+              const SectionHeader('主题色彩', color: Colors.lightBlue),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Wrap(
@@ -110,7 +108,7 @@ class _DisplayPageState extends ConsumerState<DisplayPage> {
             ),
           ),
           const Divider(),
-          const _SectionHeader('主题'),
+          const SectionHeader('主题', color: Colors.lightBlue),
           SwitchListTile(
             title: const Text('深色模式'),
             value: currentMode == ThemeMode.dark,
@@ -121,7 +119,7 @@ class _DisplayPageState extends ConsumerState<DisplayPage> {
             },
           ),
           const Divider(),
-          const _SectionHeader('首页显示'),
+          const SectionHeader('首页显示', color: Colors.lightBlue),
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: Text('排在第一的页面为打开应用时的默认首页，上下箭头调整顺序', style: TextStyle(fontSize: 12, color: Colors.grey)),
@@ -139,7 +137,7 @@ class _DisplayPageState extends ConsumerState<DisplayPage> {
               );
             })),
           const Divider(),
-          const _SectionHeader('渲染'),
+          const SectionHeader('渲染', color: Colors.lightBlue),
           ListTile(
             title: const Text('标题字号'),
             subtitle: Text('${renderSettings.titleSize.toInt()} px'),
@@ -159,7 +157,7 @@ class _DisplayPageState extends ConsumerState<DisplayPage> {
             })),
           ),
           const Divider(),
-          const _SectionHeader('底部导航栏'),
+          const SectionHeader('底部导航栏', color: Colors.lightBlue),
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: Text('即时生效', style: TextStyle(fontSize: 12, color: Colors.grey)),
@@ -172,18 +170,6 @@ class _DisplayPageState extends ConsumerState<DisplayPage> {
           ],
         ],
       ),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  const _SectionHeader(this.title);
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-      child: Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.lightBlue.shade700)),
     );
   }
 }

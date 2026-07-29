@@ -44,7 +44,7 @@ class _MonthCalendarWidgetState extends State<MonthCalendarWidget> {
         }),
       ),
     );
-    if (year != null) setState(() { _currentMonth = DateTime(year, _currentMonth.month, 1); });
+    if (year != null && mounted) setState(() { _currentMonth = DateTime(year, _currentMonth.month, 1); });
   }
 
   @override
