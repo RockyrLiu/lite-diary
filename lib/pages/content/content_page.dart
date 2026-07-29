@@ -293,14 +293,14 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
             IconButton(icon: const Icon(Icons.arrow_downward), onPressed: _goToNextEntry),
           ],
           IconButton(icon: const Icon(Icons.folder), tooltip: '分组', onPressed: _pickGroup),
-          TextButton.icon(
+          IconButton(
+            icon: Icon(_editorMode == EditorMode.source ? Icons.visibility : Icons.edit),
+            tooltip: _editorMode == EditorMode.source ? '渲染' : '编辑',
             onPressed: () {
               final goingToPreview = _editorMode == EditorMode.source;
               setState(() { _editorMode = goingToPreview ? EditorMode.preview : EditorMode.source; });
               if (goingToPreview && _contentController.text.trim().isNotEmpty) { _saveTimer?.cancel(); _saveNow(); }
             },
-            icon: Icon(_editorMode == EditorMode.source ? Icons.visibility : Icons.edit),
-            label: Text(_editorMode == EditorMode.source ? '渲染' : '编辑'),
           ),
         ],
       ),

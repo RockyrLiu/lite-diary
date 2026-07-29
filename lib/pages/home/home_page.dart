@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +13,8 @@ import '../../widgets/search_widget.dart';
 import '../settings/display_page.dart';
 import 'on_this_day_page.dart';
 import 'groups_page.dart';
+
+final randomPoetryPickProvider = StateProvider<({int entryId, DateTime date})?>((ref) => null);
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -67,8 +71,35 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 }
 
-class _CalendarViewPage extends ConsumerWidget {
+class _CalendarViewPage extends ConsumerStatefulWidget {
   const _CalendarViewPage();
+
+  @override
+  ConsumerState<_CalendarViewPage> createState() => _CalendarViewPageState();
+}
+
+class _CalendarViewPageState extends ConsumerState<_CalendarViewPage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  void _pickRandomPoetry(List<Entry> entries, List<Group> groups) {
+    final poetryGroup = groups.firstWhere(
+      (g) => g.name == '诗词',
+      orElse: () => groups.first,
+    );
+    final poetryEntries = entries
+        .where((e) => e.groupId == poetryGroup.id)
+        .toList();
+    final today = DateTime.now();
+    final todayKey = DateTime(today.year, today.month, today.day);
+    if (poetryEntries.isEmpty) {
+      ref.read(randomPoetryPickProvider.notifier).state = null;
+    } else {
+      final picked = poetryEntries[Random().nextInt(poetryEntries.length)];
+      ref.read(randomPoetryPickProvider.notifier).state = (entryId: picked.id, date: todayKey);
+    }
+  }
 
   void _navigateToDate(BuildContext context, DateTime date) {
     final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
@@ -76,7 +107,8 @@ class _CalendarViewPage extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    super.build(context);
     final countsAsync = ref.watch(calendarDateCountsProvider);
     final entriesAsync = ref.watch(allEntriesProvider);
     final groupsAsync = ref.watch(allGroupsProvider);
@@ -85,15 +117,51 @@ class _CalendarViewPage extends ConsumerWidget {
     return countsAsync.when(
       data: (counts) {
         if (counts.isEmpty) return const Center(child: Text('还没有日记，点击右下角 + 开始记录'));
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            children: [
-              MonthCalendarWidget(data: CalendarData(dateCounts: counts), initialMonth: now, onDateTap: (date) => _navigateToDate(context, date)),
-              const SizedBox(height: 16),
-              _buildStats(context, entriesAsync, groupsAsync),
-            ],
-          ),
+
+        final entries = entriesAsync.valueOrNull;
+        final groups = groupsAsync.valueOrNull;
+        final pick = ref.watch(randomPoetryPickProvider);
+        final todayKey = DateTime(now.year, now.month, now.day);
+        if ((pick == null || pick.date != todayKey) && entries != null && groups != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _pickRandomPoetry(entries, groups);
+          });
+        }
+
+        Entry? poetryEntry;
+        if (pick != null && entries != null) {
+          final idx = entries.indexWhere((e) => e.id == pick.entryId);
+          if (idx >= 0) {
+            poetryEntry = entries[idx];
+          } else {
+            poetryEntry = null;
+          }
+        }
+
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: MonthCalendarWidget(
+                          data: CalendarData(dateCounts: counts),
+                          initialMonth: now,
+                          onDateTap: (date) => _navigateToDate(context, date)),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildStats(context, entriesAsync, groupsAsync),
+                    const SizedBox(height: 12),
+                    if (poetryEntry != null)
+                      _buildPoetryCard(context, poetryEntry),
+                  ],
+                ),
+              ),
+            );
+          },
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -131,20 +199,23 @@ class _CalendarViewPage extends ConsumerWidget {
       return sum + text.length;
     });
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _statItem('总篇数', '${entries.length}'),
-          _statItem('日记', '$diaryEntries'),
-          _statItem('诗词', '$poetryEntries'),
-          _statItem('总字数', '$totalWords'),
-        ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _statItem('总篇数', '${entries.length}'),
+            _statItem('日记', '$diaryEntries'),
+            _statItem('诗词', '$poetryEntries'),
+            _statItem('总字数', '$totalWords'),
+          ],
+        ),
       ),
     );
   }
@@ -155,6 +226,70 @@ class _CalendarViewPage extends ConsumerWidget {
         Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
       ],
+    );
+  }
+
+  Widget _buildPoetryCard(BuildContext context, Entry entry) {
+    final dateStr = '${entry.date.year}年${entry.date.month}月${entry.date.day}日';
+    final content = entry.content
+        .replaceAll(RegExp(r'!\[.*?\]\(.*?\)'), '')
+        .replaceAll(RegExp(r'^#{1,6}\s', multiLine: true), '')
+        .replaceAll(RegExp(r'[*_~`>]'), '')
+        .trim();
+    final preview = entry.title != null && content.startsWith(entry.title!)
+        ? content.substring(entry.title!.length).trim()
+        : content;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Card(
+        margin: EdgeInsets.zero,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => context.go('/entry/${entry.id}'),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.auto_stories, size: 16, color: Colors.grey),
+                    const SizedBox(width: 6),
+                    const Text('旧日诗词', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.refresh, size: 18),
+                      tooltip: '换一篇',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      onPressed: () {
+                        final entries = ref.read(allEntriesProvider).valueOrNull;
+                        final groups = ref.read(allGroupsProvider).valueOrNull;
+                        if (entries != null && groups != null) {
+                          _pickRandomPoetry(entries, groups);
+                        }
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (entry.title != null && entry.title!.isNotEmpty)
+                  Text(entry.title!, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                Text(dateStr, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                const SizedBox(height: 6),
+                Text(
+                  preview,
+                  maxLines: null,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 15, color: Colors.grey.shade700, height: 1.5),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
