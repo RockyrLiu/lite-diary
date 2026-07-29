@@ -193,11 +193,41 @@ class _ContentPageState extends ConsumerState<ContentPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Padding(padding: EdgeInsets.all(12), child: Text('选择分组', style: TextStyle(fontWeight: FontWeight.bold))),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  const Text('选择分组', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.add),
+                    onPressed: () async {
+                      final controller = TextEditingController();
+                      final name = await showDialog<String>(
+                        context: ctx,
+                        builder: (dctx) => AlertDialog(
+                          title: const Text('新建分组'),
+                          content: TextField(controller: controller, autofocus: true, decoration: const InputDecoration(hintText: '分组名称')),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(dctx), child: const Text('取消')),
+                            TextButton(onPressed: () => Navigator.pop(dctx, controller.text), child: const Text('确定')),
+                          ],
+                        ),
+                      );
+                      if (name != null && name.trim().isNotEmpty) {
+                        await ref.read(databaseProvider).createGroup(GroupsCompanion(name: Value(name.trim())));
+                        ref.invalidate(allGroupsProvider);
+                        if (ctx.mounted) Navigator.pop(ctx);
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
             ...groups.map((g) => ListTile(
-              leading: Icon(Icons.folder, color: _currentGroupId == g.id ? Colors.teal : null),
+              leading: Icon(Icons.folder, color: _currentGroupId == g.id ? Colors.lightBlue : null),
               title: Text(g.name),
-              trailing: _currentGroupId == g.id ? const Icon(Icons.check, color: Colors.teal) : null,
+              trailing: _currentGroupId == g.id ? const Icon(Icons.check, color: Colors.lightBlue) : null,
               onTap: () => Navigator.pop(ctx, g.id),
             )),
           ],
@@ -266,9 +296,14 @@ class _ContentPageState extends ConsumerState<ContentPage> {
           IconButton(icon: const Icon(Icons.folder), tooltip: '分组', onPressed: _pickGroup),
           TextButton.icon(
             onPressed: () {
+              final goingToPreview = _editorMode == EditorMode.source;
               setState(() {
-                _editorMode = _editorMode == EditorMode.source ? EditorMode.preview : EditorMode.source;
+                _editorMode = goingToPreview ? EditorMode.preview : EditorMode.source;
               });
+              if (goingToPreview && _contentController.text.trim().isNotEmpty) {
+                _saveTimer?.cancel();
+                _saveNow();
+              }
             },
             icon: Icon(_editorMode == EditorMode.source ? Icons.visibility : Icons.edit),
             label: Text(_editorMode == EditorMode.source ? '预览' : '编辑'),

@@ -7,6 +7,6 @@ void main() {
   testWidgets('应用启动', (WidgetTester tester) async {
     await tester.pumpWidget(const ProviderScope(child: DiaryLiteApp()));
     await tester.pump();
-    expect(find.text('日记'), findsOneWidget);
+    expect(find.text('Diary Lite'), findsOneWidget);
   });
 }

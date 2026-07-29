@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' hide isNull, isNotNull, Column;
+import 'package:go_router/go_router.dart';
 
 import '../../database/database.dart';
 import '../../providers/database_provider.dart';
+import '../../providers/entry_provider.dart';
 import '../../providers/group_provider.dart';
 
 class GroupsPage extends ConsumerStatefulWidget {
@@ -14,6 +16,8 @@ class GroupsPage extends ConsumerStatefulWidget {
 }
 
 class _GroupsPageState extends ConsumerState<GroupsPage> {
+  int? _selectedGroupId; // null = 全部
+
   Future<void> _createGroup() async {
     final controller = TextEditingController();
     final name = await showDialog<String>(
@@ -57,7 +61,7 @@ class _GroupsPageState extends ConsumerState<GroupsPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('删除分组 "${group.name}"'),
-        content: const Text('该分组下的日记不会被删除，将移至默认分组。确定删除？'),
+        content: const Text('该分组下的日记不会被删除。确定删除？'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
           TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('删除')),
@@ -67,43 +71,91 @@ class _GroupsPageState extends ConsumerState<GroupsPage> {
     if (confirm == true) {
       await ref.read(databaseProvider).deleteGroup(group.id);
       ref.invalidate(allGroupsProvider);
+      if (_selectedGroupId == group.id) setState(() => _selectedGroupId = null);
     }
   }
+
+  String _formatDate(DateTime d) => '${d.month}.${d.day}';
 
   @override
   Widget build(BuildContext context) {
     final groupsAsync = ref.watch(allGroupsProvider);
+    final entriesAsync = _selectedGroupId == null
+        ? ref.watch(allEntriesProvider)
+        : ref.watch(entriesByGroupProvider(_selectedGroupId!));
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('分组管理'),
+        title: const Text('分组'),
         actions: [
           IconButton(icon: const Icon(Icons.add), onPressed: _createGroup),
         ],
       ),
-      body: groupsAsync.when(
-        data: (groups) => ListView.builder(
-          itemCount: groups.length,
-          itemBuilder: (context, index) {
-            final group = groups[index];
-            return ListTile(
-              leading: const Icon(Icons.folder),
-              title: Text(group.name),
-              trailing: PopupMenuButton<String>(
-                itemBuilder: (_) => [
-                  const PopupMenuItem(value: 'rename', child: Text('重命名')),
-                  const PopupMenuItem(value: 'delete', child: Text('删除')),
+      body: Row(
+        children: [
+          // 左侧分组列表
+          SizedBox(
+            width: 120,
+            child: groupsAsync.when(
+              data: (groups) => ListView(
+                children: [
+                  ListTile(
+                    title: const Text('全部', style: TextStyle(fontWeight: FontWeight.bold)),
+                    selected: _selectedGroupId == null,
+                    selectedTileColor: Colors.lightBlue.shade50,
+                    onTap: () => setState(() => _selectedGroupId = null),
+                  ),
+                  ...groups.map((g) => ListTile(
+                    title: Text(g.name),
+                    selected: _selectedGroupId == g.id,
+                    selectedTileColor: Colors.lightBlue.shade50,
+                    onTap: () => setState(() => _selectedGroupId = g.id),
+                    onLongPress: () => _showGroupMenu(g),
+                  )),
                 ],
-                onSelected: (action) {
-                  if (action == 'rename') _renameGroup(group);
-                  if (action == 'delete') _deleteGroup(group);
-                },
               ),
-            );
-          },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => const SizedBox(),
+            ),
+          ),
+          const VerticalDivider(width: 1),
+          // 右侧日记列表
+          Expanded(
+            child: entriesAsync.when(
+              data: (entries) {
+                if (entries.isEmpty) return const Center(child: Text('暂无日记'));
+                return ListView.builder(
+                  itemCount: entries.length,
+                  itemBuilder: (_, i) {
+                    final e = entries[i];
+                    return ListTile(
+                      title: Text(e.title ?? '无标题', maxLines: 1),
+                      subtitle: Text('${_formatDate(e.date)}  ${e.content}', maxLines: 2, style: const TextStyle(fontSize: 12)),
+                      onTap: () => context.go('/entry/${e.id}'),
+                    );
+                  },
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('加载失败: $e')),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showGroupMenu(Group group) {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(leading: const Icon(Icons.edit), title: const Text('重命名'), onTap: () { Navigator.pop(context); _renameGroup(group); }),
+            ListTile(leading: const Icon(Icons.delete, color: Colors.red), title: const Text('删除'), onTap: () { Navigator.pop(context); _deleteGroup(group); }),
+          ],
         ),
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('加载失败: $e')),
       ),
     );
   }

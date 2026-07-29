@@ -5,7 +5,7 @@ class RenderingSettings {
   final double titleSize;
   final double bodySize;
 
-  const RenderingSettings({this.titleSize = 24, this.bodySize = 16});
+  const RenderingSettings({this.titleSize = 24, this.bodySize = 19});
 
   RenderingSettings copyWith({double? titleSize, double? bodySize}) {
     return RenderingSettings(
@@ -21,7 +21,7 @@ Future<RenderingSettings> loadRenderingSettings() async {
   final prefs = await SharedPreferences.getInstance();
   return RenderingSettings(
     titleSize: prefs.getDouble('render_title_size') ?? 24,
-    bodySize: prefs.getDouble('render_body_size') ?? 16,
+    bodySize: prefs.getDouble('render_body_size') ?? 19,
   );
 }
 

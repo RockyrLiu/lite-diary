@@ -9,6 +9,23 @@ final tabVisibilityProvider = StateProvider<Map<String, bool>>((ref) {
   return {'首页': true, '内容': true, 'LLM': true, '设置': true};
 });
 
+// 首页三页顺序 (0=那年今日, 1=日历, 2=分组), 默认: 那年今日, 日历, 分组
+final homePageOrderProvider = StateProvider<List<int>>((ref) => const [0, 1, 2]);
+
+Future<List<int>> loadHomePageOrder() async {
+  final prefs = await SharedPreferences.getInstance();
+  final order = prefs.getStringList('home_page_order');
+  if (order != null && order.length == 3) {
+    return order.map(int.parse).toList();
+  }
+  return const [0, 1, 2]; // 那年今日, 日历, 分组
+}
+
+Future<void> saveHomePageOrder(List<int> order) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setStringList('home_page_order', order.map((e) => e.toString()).toList());
+}
+
 class DisplayPage extends ConsumerStatefulWidget {
   const DisplayPage({super.key});
 
@@ -18,15 +35,18 @@ class DisplayPage extends ConsumerStatefulWidget {
 
 class _DisplayPageState extends ConsumerState<DisplayPage> {
   Map<String, bool> _tabs = {};
+  List<int> _pageOrder = [0, 1, 2];
   bool _loaded = false;
+
+  static const _pageNames = ['那年今日', '日历', '分组'];
 
   @override
   void initState() {
     super.initState();
-    _loadTabs();
+    _load();
   }
 
-  Future<void> _loadTabs() async {
+  Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _tabs = {
@@ -35,9 +55,23 @@ class _DisplayPageState extends ConsumerState<DisplayPage> {
         'LLM': prefs.getBool('tab_llm') ?? true,
         '设置': prefs.getBool('tab_settings') ?? true,
       };
+      final order = prefs.getStringList('home_page_order');
+      _pageOrder = order != null && order.length == 3 ? order.map(int.parse).toList() : [0, 1, 2];
       _loaded = true;
     });
     ref.read(tabVisibilityProvider.notifier).state = Map.from(_tabs);
+  }
+
+  void _movePage(int from, bool down) {
+    final to = down ? from + 1 : from - 1;
+    if (to < 0 || to >= _pageOrder.length) return;
+    setState(() {
+      final tmp = _pageOrder[from];
+      _pageOrder[from] = _pageOrder[to];
+      _pageOrder[to] = tmp;
+    });
+    ref.read(homePageOrderProvider.notifier).state = List.from(_pageOrder);
+    saveHomePageOrder(_pageOrder);
   }
 
   Future<void> _setTab(String key, bool value) async {
@@ -51,12 +85,30 @@ class _DisplayPageState extends ConsumerState<DisplayPage> {
   @override
   Widget build(BuildContext context) {
     final currentMode = ref.watch(themeModeProvider);
+    final colorIndex = ref.watch(themeColorIndexProvider);
     final renderSettings = ref.watch(renderingSettingsProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('显示控制')),
       body: ListView(
         children: [
+          const _SectionHeader('配色'),
+          Wrap(
+            spacing: 8,
+            children: List.generate(ThemeColors.colors.length, (i) {
+              final selected = i == colorIndex;
+              return ChoiceChip(
+                label: Text(ThemeColors.names[i]),
+                selected: selected,
+                selectedColor: ThemeColors.colors[i].shade100,
+                onSelected: (_) {
+                  ref.read(themeColorIndexProvider.notifier).state = i;
+                  AppTheme.saveColorIndex(i);
+                },
+              );
+            }),
+          ),
+          const SizedBox(height: 8),
           const _SectionHeader('主题'),
           SwitchListTile(
             title: const Text('深色模式'),
@@ -68,49 +120,51 @@ class _DisplayPageState extends ConsumerState<DisplayPage> {
             },
           ),
           const Divider(),
+          const _SectionHeader('首页三页顺序'),
+          if (_loaded)
+            Column(
+              children: List.generate(_pageOrder.length, (i) {
+                final idx = _pageOrder[i];
+                return ListTile(
+                  leading: CircleAvatar(radius: 12, child: Text('${i + 1}', style: const TextStyle(fontSize: 12))),
+                  title: Text(_pageNames[idx]),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (i > 0)
+                        IconButton(icon: const Icon(Icons.arrow_upward, size: 20), onPressed: () => _movePage(i, false)),
+                      if (i < _pageOrder.length - 1)
+                        IconButton(icon: const Icon(Icons.arrow_downward, size: 20), onPressed: () => _movePage(i, true)),
+                    ],
+                  ),
+                );
+              }),
+            ),
+          const Divider(),
           const _SectionHeader('渲染'),
           ListTile(
             title: const Text('标题字号'),
             subtitle: Text('${renderSettings.titleSize.toInt()} px'),
-            trailing: SizedBox(
-              width: 160,
-              child: Slider(
-                value: renderSettings.titleSize,
-                min: 16,
-                max: 36,
-                divisions: 20,
-                onChanged: (v) {
-                  final s = renderSettings.copyWith(titleSize: v);
-                  ref.read(renderingSettingsProvider.notifier).state = s;
-                  saveRenderingSettings(s);
-                },
-              ),
-            ),
+            trailing: SizedBox(width: 160, child: Slider(value: renderSettings.titleSize, min: 16, max: 36, divisions: 20, onChanged: (v) {
+              final s = renderSettings.copyWith(titleSize: v);
+              ref.read(renderingSettingsProvider.notifier).state = s;
+              saveRenderingSettings(s);
+            })),
           ),
           ListTile(
             title: const Text('正文字号'),
             subtitle: Text('${renderSettings.bodySize.toInt()} px'),
-            trailing: SizedBox(
-              width: 160,
-              child: Slider(
-                value: renderSettings.bodySize,
-                min: 12,
-                max: 28,
-                divisions: 16,
-                onChanged: (v) {
-                  final s = renderSettings.copyWith(bodySize: v);
-                  ref.read(renderingSettingsProvider.notifier).state = s;
-                  saveRenderingSettings(s);
-                },
-              ),
-            ),
+            trailing: SizedBox(width: 160, child: Slider(value: renderSettings.bodySize, min: 12, max: 28, divisions: 16, onChanged: (v) {
+              final s = renderSettings.copyWith(bodySize: v);
+              ref.read(renderingSettingsProvider.notifier).state = s;
+              saveRenderingSettings(s);
+            })),
           ),
           const Divider(),
           const _SectionHeader('底部导航栏'),
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Text('控制底部导航栏中显示的标签页（重启后生效）',
-              style: TextStyle(fontSize: 12, color: Colors.grey)),
+            child: Text('控制底部导航栏中显示的标签页（重启后生效）', style: TextStyle(fontSize: 12, color: Colors.grey)),
           ),
           if (_loaded) ...[
             SwitchListTile(title: const Text('首页'), value: _tabs['首页'] ?? true, onChanged: (v) => _setTab('首页', v)),
@@ -132,7 +186,7 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-      child: Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.teal.shade700)),
+      child: Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.lightBlue.shade700)),
     );
   }
 }

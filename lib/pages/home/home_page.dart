@@ -6,6 +6,7 @@ import '../../providers/calendar_data_provider.dart';
 import '../../widgets/heatmap_widget.dart';
 import '../../widgets/calendar_widget.dart';
 import '../../widgets/search_widget.dart';
+import '../settings/display_page.dart';
 import 'on_this_day_page.dart';
 import 'groups_page.dart';
 
@@ -17,7 +18,14 @@ class HomePage extends ConsumerStatefulWidget {
 }
 
 class _HomePageState extends ConsumerState<HomePage> {
-  final PageController _pageController = PageController(initialPage: 1);
+  late PageController _pageController;
+  List<int> _order = [0, 1, 2];
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: 1);
+  }
 
   @override
   void dispose() {
@@ -27,18 +35,31 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final pageOrder = ref.watch(homePageOrderProvider);
+    if (pageOrder != _order) {
+      _order = pageOrder;
+      final calendarIdx = _order.indexOf(1);
+      if (calendarIdx >= 0 && _pageController.hasClients) {
+        _pageController.jumpToPage(calendarIdx);
+      }
+    }
+
+    final orderedPages = _order.map((idx) {
+      return switch (idx) {
+        0 => const OnThisDayPage(),
+        1 => const _CalendarViewPage(),
+        _ => const GroupsPage(),
+      };
+    }).toList();
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('日记'),
+        title: const Text('Diary Lite'),
         actions: const [SearchWidget()],
       ),
       body: PageView(
         controller: _pageController,
-        children: const [
-          OnThisDayPage(),
-          _CalendarViewPage(),
-          GroupsPage(),
-        ],
+        children: orderedPages,
       ),
     );
   }
@@ -88,4 +109,3 @@ class _CalendarViewPage extends ConsumerWidget {
     );
   }
 }
-

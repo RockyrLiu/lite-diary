@@ -11,15 +11,15 @@ class AboutPage extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         children: const [
           Center(
-            child: Icon(Icons.edit_note, size: 72, color: Colors.teal),
+            child: Icon(Icons.edit_note, size: 72, color: Colors.lightBlue),
           ),
           SizedBox(height: 16),
           Center(
-            child: Text('日记 Lite', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            child: Text('Diary Lite', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
           ),
           SizedBox(height: 8),
           Center(
-            child: Text('v0.1.0', style: TextStyle(fontSize: 14, color: Colors.grey)),
+            child: Text('v0.1.3', style: TextStyle(fontSize: 14, color: Colors.grey)),
           ),
           SizedBox(height: 24),
           Text(
