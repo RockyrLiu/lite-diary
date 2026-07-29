@@ -20,15 +20,20 @@ class HomePage extends ConsumerStatefulWidget {
 class _HomePageState extends ConsumerState<HomePage> {
   late PageController _pageController;
   static const _kPageMultiplier = 1000;
+  List<int> _lastOrder = [0, 1, 2];
 
   final _pages = const [OnThisDayPage(), _CalendarViewPage(), GroupsPage()];
 
   @override
   void initState() {
     super.initState();
-    final order = ref.read(homePageOrderProvider);
-    final homeIdx = order[0]; // 第一个即默认首页
-    _pageController = PageController(initialPage: _kPageMultiplier * _pages.length + homeIdx);
+    _pageController = PageController(initialPage: _kPageMultiplier * 3 + 1);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final order = ref.read(homePageOrderProvider);
+      _lastOrder = order;
+      _pageController.jumpToPage(_kPageMultiplier * 3 + order[0]);
+    });
   }
 
   @override
@@ -41,13 +46,17 @@ class _HomePageState extends ConsumerState<HomePage> {
   Widget build(BuildContext context) {
     final pageOrder = ref.watch(homePageOrderProvider);
 
+    if (pageOrder != _lastOrder && _pageController.hasClients) {
+      _lastOrder = pageOrder;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _pageController.jumpToPage(_kPageMultiplier * 3 + pageOrder[0]);
+      });
+    }
+
     final orderedPages = pageOrder.map((idx) => _pages[idx]).toList();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Diary Lite'),
-        actions: const [SearchWidget()],
-      ),
+      appBar: AppBar(title: const Text('Diary Lite'), actions: const [SearchWidget()]),
       body: PageView.builder(
         controller: _pageController,
         itemBuilder: (context, index) => orderedPages[index % orderedPages.length],

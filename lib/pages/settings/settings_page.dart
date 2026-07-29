@@ -28,14 +28,7 @@ class SettingsPage extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.file_download),
             title: const Text('导出数据'),
-            subtitle: const Text('导出日记为 ZIP 文件'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/settings/export'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.auto_stories),
-            title: const Text('导出诗稿'),
-            subtitle: const Text('将诗词分组导出为诗稿'),
+            subtitle: const Text('导出日记、诗稿等'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/export'),
           ),

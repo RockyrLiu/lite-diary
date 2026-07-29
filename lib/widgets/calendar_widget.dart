@@ -70,7 +70,7 @@ class _MonthCalendarWidgetState extends State<MonthCalendarWidget> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         IconButton(icon: const Icon(Icons.chevron_left), onPressed: _previousMonth),
-        Text('$year 年 $month 月', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        Text('$year 年 $month 月', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
         IconButton(icon: const Icon(Icons.chevron_right), onPressed: _nextMonth),
       ],
     );
@@ -82,7 +82,7 @@ class _MonthCalendarWidgetState extends State<MonthCalendarWidget> {
       children: dayNames.map((name) {
         return Expanded(
           child: Center(
-            child: Text(name, style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+            child: Text(name, style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
           ),
         );
       }).toList(),
@@ -126,10 +126,10 @@ class _MonthCalendarWidgetState extends State<MonthCalendarWidget> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('$day', style: TextStyle(fontSize: 16, fontWeight: isToday ? FontWeight.bold : null)),
+                  Text('$day', style: TextStyle(fontSize: 18, fontWeight: isToday ? FontWeight.bold : null)),
                   Text(
                     LunarService.lunarDayShort(date),
-                    style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
