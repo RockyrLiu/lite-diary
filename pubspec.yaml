@@ -46,6 +46,7 @@ dependencies:
   archive: ^4.0.9
   geolocator: ^14.0.3
   geocoding: ^4.0.0
+  crypto: ^3.0.7
 
 dev_dependencies:
   flutter_test:

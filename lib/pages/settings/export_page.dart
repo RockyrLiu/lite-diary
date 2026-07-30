@@ -1,7 +1,10 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:archive/archive_io.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -199,10 +202,17 @@ class _ExportPageState extends ConsumerState<ExportPage> {
   }
 
   Future<String> _buildZip(
-      String mdFileName, StringBuffer mdContent, List<_ImageRecord> imageRecords) async {
+      String mdFileName, StringBuffer mdContent, List<_ImageRecord> imageRecords,
+      {String? metadataJson}) async {
     final tempDir = await Directory.systemTemp.createTemp('diary_export_');
     final mdFile = File('${tempDir.path}/$mdFileName');
     await mdFile.writeAsString(mdContent.toString());
+
+    File? metaFile;
+    if (metadataJson != null) {
+      metaFile = File('${tempDir.path}/_metadata.json');
+      await metaFile.writeAsString(metadataJson);
+    }
 
     for (final r in imageRecords) {
       final destFile = File('${tempDir.path}/${r.destRelPath}');
@@ -213,6 +223,9 @@ class _ExportPageState extends ConsumerState<ExportPage> {
     final zipPath = '${tempDir.path}/$mdFileName.zip';
     final encoder = ZipFileEncoder()..create(zipPath);
     await encoder.addFile(mdFile, mdFileName);
+    if (metaFile != null) {
+      await encoder.addFile(metaFile, '_metadata.json');
+    }
     for (final r in imageRecords) {
       await encoder.addFile(File('${tempDir.path}/${r.destRelPath}'), r.destRelPath);
     }
@@ -247,7 +260,7 @@ class _ExportPageState extends ConsumerState<ExportPage> {
     final tagMap = await db.getEntryTagsMap();
 
     final nameSuffix = range.allTime ? '全部' : '${_dateStr(range.start)}_${_dateStr(range.end)}';
-    await _doEntriesZip(entries, tagMap, '日记_$nameSuffix.md');
+    await _doEntriesZip(entries, tagMap, groups, '日记_$nameSuffix.md');
   }
 
   // ── Export: 诗稿 ──
@@ -304,12 +317,7 @@ class _ExportPageState extends ConsumerState<ExportPage> {
 
     final zipPath = await _buildZip(fileName, buffer, imageRecords);
     if (mounted) {
-      final result = await SharePlus.instance.share(ShareParams(
-        files: [XFile(zipPath)], subject: fileName, text: fileName,
-      ));
-      if (result.status == ShareResultStatus.success) {
-        _showSnackBar('诗稿已生成');
-      }
+      await _shareOrSave(zipPath, fileName, entries.length);
     }
   }
 
@@ -331,9 +339,10 @@ class _ExportPageState extends ConsumerState<ExportPage> {
     entries.sort((a, b) => a.date.compareTo(b.date));
 
     final tagMap = await db.getEntryTagsMap();
+    final groups = await db.getAllGroups();
 
     final nameSuffix = range.allTime ? '全部' : '${_dateStr(range.start)}_${_dateStr(range.end)}';
-    await _doEntriesZip(entries, tagMap, '${group.name}_$nameSuffix.md');
+    await _doEntriesZip(entries, tagMap, groups, '${group.name}_$nameSuffix.md');
   }
 
   // ── Export: 所有数据 ──
@@ -351,15 +360,18 @@ class _ExportPageState extends ConsumerState<ExportPage> {
     filtered.sort((a, b) => a.date.compareTo(b.date));
 
     final tagMap = await db.getEntryTagsMap();
+    final groups = await db.getAllGroups();
 
     final nameSuffix = range.allTime ? '全部' : '${_dateStr(range.start)}_${_dateStr(range.end)}';
-    await _doEntriesZip(filtered, tagMap, '全部日记_$nameSuffix.md');
+    await _doEntriesZip(filtered, tagMap, groups, '全部日记_$nameSuffix.md');
   }
 
   // ── Common: entries → zip → share ──
 
-  Future<void> _doEntriesZip(List<Entry> entries, Map<int, List<String>> tagMap, String fileName) async {
+  Future<void> _doEntriesZip(List<Entry> entries, Map<int, List<String>> tagMap, List<Group> groups, String fileName) async {
     final imageRecords = await _collectImages(entries);
+
+    final groupNameById = {for (final g in groups) g.id: g.name};
 
     final buffer = StringBuffer();
     for (var i = 0; i < entries.length; i++) {
@@ -367,11 +379,16 @@ class _ExportPageState extends ConsumerState<ExportPage> {
       final dateStr = _dateStr(entry.date);
       final tags = tagMap[entry.id];
       final content = _replaceImagePaths(entry.content, imageRecords, entry.id);
+      final groupName = groupNameById[entry.groupId] ?? '';
+      final hash = entry.hash ?? '';
+      final createdAtStr = _dateTimeStr(entry.createdAt);
+      final updatedAtStr = _dateTimeStr(entry.updatedAt);
 
       buffer.writeln('> date: $dateStr');
       if (entry.title != null && entry.title!.isNotEmpty) {
         buffer.writeln('> title: ${entry.title}');
       }
+      buffer.writeln('> group: $groupName');
       if (tags != null && tags.isNotEmpty) {
         buffer.writeln('> tags: ${tags.join(', ')}');
       }
@@ -380,6 +397,11 @@ class _ExportPageState extends ConsumerState<ExportPage> {
       }
       if (entry.location != null && entry.location!.isNotEmpty) {
         buffer.writeln('> location: ${entry.location}');
+      }
+      buffer.writeln('> created_at: $createdAtStr');
+      buffer.writeln('> updated_at: $updatedAtStr');
+      if (hash.isNotEmpty) {
+        buffer.writeln('> hash: $hash');
       }
       buffer.writeln();
       buffer.writeln(content);
@@ -391,18 +413,70 @@ class _ExportPageState extends ConsumerState<ExportPage> {
       }
     }
 
-    final zipPath = await _buildZip(fileName, buffer, imageRecords);
+    final metadataJson = jsonEncode({
+      'version': 1,
+      'exported_at': _dateTimeStr(DateTime.now()),
+      'entries': entries
+          .map((e) => {
+                'hash': e.hash ?? _computeHash(e.date, e.content),
+                'updated_at': _dateTimeStr(e.updatedAt),
+              })
+          .toList(),
+    });
+
+    final zipPath = await _buildZip(fileName, buffer, imageRecords,
+        metadataJson: metadataJson);
     if (mounted) {
-      final result = await SharePlus.instance.share(ShareParams(
-        files: [XFile(zipPath)], subject: fileName, text: fileName,
-      ));
-      if (result.status == ShareResultStatus.success) {
-        _showSnackBar('已导出 ${entries.length} 篇日记');
-      }
+      await _shareOrSave(zipPath, fileName, entries.length);
     }
   }
 
   // ── Helpers ──
+
+  Future<void> _shareOrSave(String zipPath, String fileName, int entryCount) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+            leading: const Icon(Icons.share),
+            title: const Text('分享'),
+            onTap: () => Navigator.pop(ctx, 'share'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.folder),
+            title: const Text('保存到本地'),
+            onTap: () => Navigator.pop(ctx, 'save'),
+          ),
+        ]),
+      ),
+    );
+    if (action == null || !mounted) return;
+
+    if (action == 'save') {
+      try {
+        final saved = await const MethodChannel('lite_diary/file_picker')
+            .invokeMethod<bool>('saveFile', {
+          'sourcePath': zipPath,
+          'fileName': fileName,
+        });
+        if (saved == true && mounted) {
+          _showSnackBar('已保存 $entryCount 篇日记到下载目录');
+        } else if (mounted) {
+          _showSnackBar('保存失败', error: true);
+        }
+      } catch (_) {
+        if (mounted) _showSnackBar('保存失败', error: true);
+      }
+    } else {
+      final result = await SharePlus.instance.share(ShareParams(
+        files: [XFile(zipPath)], subject: fileName, text: fileName,
+      ));
+      if (result.status == ShareResultStatus.success && mounted) {
+        _showSnackBar('已导出 $entryCount 篇日记');
+      }
+    }
+  }
 
   bool _inRange(DateTime date, _DateRange range) {
     if (range.allTime) return true;
@@ -412,6 +486,15 @@ class _ExportPageState extends ConsumerState<ExportPage> {
 
   String _dateStr(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  String _dateTimeStr(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')} '
+      '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+
+  String _computeHash(DateTime date, String content) {
+    final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    return sha256.convert(utf8.encode('$dateStr|$content')).toString();
+  }
 
   @override
   Widget build(BuildContext context) {

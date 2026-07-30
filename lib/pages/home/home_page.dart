@@ -84,6 +84,7 @@ class _CalendarViewPageState extends ConsumerState<_CalendarViewPage>
   bool get wantKeepAlive => true;
 
   void _pickRandomPoetry(List<Entry> entries, List<Group> groups) {
+    if (entries.isEmpty || groups.isEmpty) return;
     final poetryGroup = groups.firstWhere(
       (g) => g.name == '诗词',
       orElse: () => groups.first,

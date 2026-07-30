@@ -73,6 +73,10 @@ class AppDatabase extends _$AppDatabase {
     return select(entries).get();
   }
 
+  Future<Entry?> getEntryByHash(String hash) {
+    return (select(entries)..where((e) => e.hash.equals(hash))).getSingleOrNull();
+  }
+
   // ========== Group ==========
 
   Future<int> createGroup(GroupsCompanion group) {

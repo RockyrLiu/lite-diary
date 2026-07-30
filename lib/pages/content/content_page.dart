@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' hide isNull, isNotNull, Column;
@@ -51,6 +54,11 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
       return title.isEmpty ? null : title;
     }
     return null;
+  }
+
+  String _computeHash(DateTime date, String content) {
+    final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    return sha256.convert(utf8.encode('$dateStr|$content')).toString();
   }
 
   @override
@@ -147,17 +155,21 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
     final title = _extractTitle(content);
     final now = DateTime.now();
     if (_editingEntryId != null) {
+      final hash = _computeHash(_currentDate, content);
       await db.updateEntry(_editingEntryId!, EntriesCompanion(
         title: Value(title), content: Value(content), updatedAt: Value(now),
         weather: Value(_weather.isEmpty ? null : _weather),
         location: Value(_location.isEmpty ? null : _location),
+        hash: Value(hash),
       ));
     } else {
+      final hash = _computeHash(_currentDate, content);
       final newId = await db.createEntry(EntriesCompanion(
         title: Value(title), date: Value(_currentDate), content: Value(content),
         groupId: Value(_currentGroupId), createdAt: Value(now), updatedAt: Value(now),
         weather: Value(_weather.isEmpty ? null : _weather),
         location: Value(_location.isEmpty ? null : _location),
+        hash: Value(hash),
       ));
       if (mounted) {
         final refreshedEntries = await db.getEntriesByDate(_currentDate);

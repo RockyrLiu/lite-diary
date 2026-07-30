@@ -8,6 +8,7 @@ import 'pages/content/content_page.dart';
 import 'pages/llm/llm_page.dart';
 import 'pages/settings/settings_page.dart';
 import 'pages/settings/export_page.dart';
+import 'pages/settings/import_page.dart';
 import 'pages/settings/about_page.dart';
 import 'pages/settings/display_page.dart';
 import 'pages/settings/on_this_day_filter_page.dart';
@@ -61,6 +62,7 @@ GoRouter _buildRouter({
         GoRoute(path: 'llm', builder: (context, state) => const SettingsPage()),
         GoRoute(path: 'about', builder: (context, state) => const AboutPage()),
         GoRoute(path: 'export', builder: (context, state) => const ExportPage()),
+        GoRoute(path: 'import', builder: (context, state) => const ImportPage()),
         GoRoute(path: 'filters', builder: (context, state) => const OnThisDayFilterPage()),
       ]),
     ]));

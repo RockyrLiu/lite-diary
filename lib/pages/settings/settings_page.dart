@@ -26,7 +26,14 @@ class SettingsPage extends StatelessWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/filters'),
           ),
-          const SectionHeader('导出'),
+          const SectionHeader('导入 / 导出'),
+          ListTile(
+            leading: const Icon(Icons.file_upload),
+            title: const Text('导入'),
+            subtitle: const Text('从导出的文件恢复数据'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/import'),
+          ),
           ListTile(
             leading: const Icon(Icons.file_download),
             title: const Text('导出'),

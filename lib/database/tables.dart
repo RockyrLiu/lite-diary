@@ -16,6 +16,7 @@ class Entries extends Table {
   TextColumn get location => text().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+  TextColumn get hash => text().nullable()();
 }
 
 class Tags extends Table {
