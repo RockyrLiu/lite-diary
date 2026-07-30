@@ -637,21 +637,6 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   Widget build(BuildContext context) {
     final dateStr = '${_currentDate.year}年${_currentDate.month}月${_currentDate.day}日';
     final renderSettings = ref.watch(renderingSettingsProvider);
-    ref.watch(entriesByDateProvider(_currentDate)).whenOrNull(data: (entries) {
-      if (!_hasUnsavedChanges && !_isSaving &&
-          entries.length != _currentEntries.length) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            setState(() {
-              _currentEntries = entries;
-              if (_currentEntryIndex >= entries.length) {
-                _currentEntryIndex = entries.isEmpty ? 0 : entries.length - 1;
-              }
-            });
-          }
-        });
-      }
-    });
 
     return Scaffold(
       appBar: AppBar(
