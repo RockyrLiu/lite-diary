@@ -456,8 +456,9 @@ class _ExportPageState extends ConsumerState<ExportPage> {
   // ── Helpers ──
 
   Future<void> _shareOrSave(String zipPath, String fileName, int entryCount) async {
+    final baseName = fileName.endsWith('.md') ? fileName.substring(0, fileName.length - 3) : fileName;
     String finalPath = zipPath;
-    String finalName = '$fileName.zip';
+    String finalName = '$baseName.zip';
     String? headerPath;
     if (_encrypt && _hasEncryptionKey) {
       final cfg = await EncryptionConfig.load();
@@ -468,7 +469,7 @@ class _ExportPageState extends ConsumerState<ExportPage> {
         final encPath = '$zipPath.enc';
         await File(encPath).writeAsBytes(encrypted);
         finalPath = encPath;
-        finalName = '$fileName.zip.enc';
+        finalName = '$baseName.zip.enc';
 
         final ivHex = CryptoService.keyToHex(CryptoService.extractIv(encrypted));
         final manifestHash = await _hashManifestFromZip(zipPath);
