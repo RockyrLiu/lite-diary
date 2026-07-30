@@ -191,6 +191,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
     } else {
       _contentController.clear();
       _editingEntryId = null;
+      _currentGroupId = _diaryGroupId;
       _hasUnsavedChanges = false;
       _modifiedTime = null;
       _weather = '';
@@ -199,7 +200,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   }
 
   Future<void> _goToDate(DateTime date, bool forward) async {
-    _saveNow();
+    await _saveNow();
     _slideForward = forward;
     final entries = await db.getEntriesByDate(date);
     if (!mounted) return;
@@ -214,7 +215,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   }
 
   Future<void> _goToNextDate() async {
-    _saveNow();
+    await _saveNow();
     final entries = await db.getAllEntries();
     final dates = entries.map((e) => DateTime(e.date.year, e.date.month, e.date.day)).toSet().toList()..sort();
     final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
@@ -226,7 +227,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   }
 
   Future<void> _goToPreviousDate() async {
-    _saveNow();
+    await _saveNow();
     final entries = await db.getAllEntries();
     final dates = entries.map((e) => DateTime(e.date.year, e.date.month, e.date.day)).toSet().toList()..sort();
     final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
@@ -237,8 +238,8 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
     if (prevDate != _currentDate) await _goToDate(prevDate, false);
   }
 
-  void _goToNextEntry() { _saveNow(); if (_currentEntryIndex < _currentEntries.length - 1) { setState(() { _currentEntryIndex++; _loadCurrentEntry(); }); } }
-  void _goToPreviousEntry() { _saveNow(); if (_currentEntryIndex > 0) { setState(() { _currentEntryIndex--; _loadCurrentEntry(); }); } }
+  Future<void> _goToNextEntry() async { await _saveNow(); if (_currentEntryIndex < _currentEntries.length - 1) { setState(() { _currentEntryIndex++; _loadCurrentEntry(); }); } }
+  Future<void> _goToPreviousEntry() async { await _saveNow(); if (_currentEntryIndex > 0) { setState(() { _currentEntryIndex--; _loadCurrentEntry(); }); } }
 
   void _startNewEntry() {
     _saveNow();
@@ -427,9 +428,6 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
       if (_editingEntryId != null) '$_wordCount字',
       ?_modifiedTime,
     ];
-    if (parts.isEmpty && _weather.isEmpty && _location.isEmpty) {
-      return const SizedBox.shrink();
-    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: GestureDetector(
@@ -456,7 +454,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   }
 
   Widget _buildContentPane(RenderingSettings renderSettings) {
-    if (_currentEntries.isEmpty && _editingEntryId == null && _isToday(_currentDate)) {
+    if (_currentEntries.isEmpty && _editingEntryId == null && _isToday(_currentDate) && _editorMode != EditorMode.source) {
       return const Column(children: [
         Expanded(
           child: Center(
@@ -569,9 +567,13 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
           IconButton(
             icon: Icon(_editorMode == EditorMode.source ? Icons.visibility : Icons.edit),
             tooltip: _editorMode == EditorMode.source ? '渲染' : '编辑',
-            onPressed: () {
+            onPressed: () async {
               final goingToPreview = _editorMode == EditorMode.source;
-              if (goingToPreview) { _saveTimer?.cancel(); _saveNow(); }
+              if (goingToPreview) {
+                _saveTimer?.cancel();
+                await _saveNow();
+              }
+              if (!mounted) return;
               setState(() { _editorMode = goingToPreview ? EditorMode.preview : EditorMode.source; });
             },
           ),
