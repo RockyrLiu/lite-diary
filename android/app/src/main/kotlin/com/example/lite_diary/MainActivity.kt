@@ -73,7 +73,7 @@ class MainActivity : FlutterActivity() {
             val sourceFile = File(sourcePath)
             val values = ContentValues().apply {
                 put(MediaStore.Downloads.DISPLAY_NAME, fileName)
-                put(MediaStore.Downloads.MIME_TYPE, "application/zip")
+                put(MediaStore.Downloads.MIME_TYPE, getMimeType(fileName))
                 put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
             }
             val uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
@@ -85,6 +85,15 @@ class MainActivity : FlutterActivity() {
             uri != null
         } catch (_: Exception) {
             false
+        }
+    }
+
+    private fun getMimeType(fileName: String): String {
+        return when {
+            fileName.endsWith(".json") -> "application/json"
+            fileName.endsWith(".zip")  -> "application/zip"
+            fileName.endsWith(".enc")  -> "application/octet-stream"
+            else                       -> "application/octet-stream"
         }
     }
 
