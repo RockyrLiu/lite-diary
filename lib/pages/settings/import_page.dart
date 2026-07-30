@@ -50,7 +50,7 @@ class _ImportPageState extends ConsumerState<ImportPage> {
     setState(() => _importing = true);
 
     String actualPath = filePath;
-    final isEnc = fileName.endsWith('.enc');
+    final isEnc = fileName.contains('.enc');
     if (isEnc) {
       final cfg = await EncryptionConfig.load();
       if (cfg.keyHex.isEmpty) {
@@ -76,7 +76,7 @@ class _ImportPageState extends ConsumerState<ImportPage> {
     int skippedCount = 0;
 
     try {
-      final isZip = fileName.endsWith('.zip');
+      final isZip = fileName.endsWith('.zip') || isEnc;
       String content;
       final Map<String, String> imagePathMap = {};
 

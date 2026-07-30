@@ -222,15 +222,15 @@ class _ExportPageState extends ConsumerState<ExportPage> {
 
   Future<String> _buildZip(
       String mdFileName, StringBuffer mdContent, List<_ImageRecord> imageRecords,
-      {String? metadataJson}) async {
+      {String? manifestJson}) async {
     final tempDir = await Directory.systemTemp.createTemp('diary_export_');
     final mdFile = File('${tempDir.path}/$mdFileName');
     await mdFile.writeAsString(mdContent.toString());
 
     File? metaFile;
-    if (metadataJson != null) {
-      metaFile = File('${tempDir.path}/_metadata.json');
-      await metaFile.writeAsString(metadataJson);
+    if (manifestJson != null) {
+      metaFile = File('${tempDir.path}/_manifest.json');
+      await metaFile.writeAsString(manifestJson);
     }
 
     for (final r in imageRecords) {
@@ -243,7 +243,7 @@ class _ExportPageState extends ConsumerState<ExportPage> {
     final encoder = ZipFileEncoder()..create(zipPath);
     await encoder.addFile(mdFile, mdFileName);
     if (metaFile != null) {
-      await encoder.addFile(metaFile, '_metadata.json');
+      await encoder.addFile(metaFile, '_manifest.json');
     }
     for (final r in imageRecords) {
       await encoder.addFile(File('${tempDir.path}/${r.destRelPath}'), r.destRelPath);
@@ -432,7 +432,7 @@ class _ExportPageState extends ConsumerState<ExportPage> {
       }
     }
 
-    final metadataJson = jsonEncode({
+    final manifestJson = jsonEncode({
       'version': 1,
       'exported_at': _dateTimeStr(DateTime.now()),
       'entries': entries
@@ -447,7 +447,7 @@ class _ExportPageState extends ConsumerState<ExportPage> {
     });
 
     final zipPath = await _buildZip(fileName, buffer, imageRecords,
-        metadataJson: metadataJson);
+        manifestJson: manifestJson);
     if (mounted) {
       await _shareOrSave(zipPath, fileName, entries.length);
     }
@@ -458,6 +458,7 @@ class _ExportPageState extends ConsumerState<ExportPage> {
   Future<void> _shareOrSave(String zipPath, String fileName, int entryCount) async {
     String finalPath = zipPath;
     String finalName = fileName;
+    String? headerPath;
     if (_encrypt && _hasEncryptionKey) {
       final cfg = await EncryptionConfig.load();
       if (cfg.keyHex.isNotEmpty) {
@@ -467,10 +468,22 @@ class _ExportPageState extends ConsumerState<ExportPage> {
         final encPath = '$zipPath.enc';
         await File(encPath).writeAsBytes(encrypted);
         finalPath = encPath;
-        finalName = '$fileName.enc';
+        finalName = '$fileName.zip.enc';
+
+        final ivHex = CryptoService.keyToHex(CryptoService.extractIv(encrypted));
+        final manifestHash = await _hashManifestFromZip(zipPath);
+        final header = {
+          'encrypted': true,
+          'hash': manifestHash,
+          'salt': cfg.salt,
+          'iv': ivHex,
+        };
+        headerPath = '${zipPath}_header.json';
+        await File(headerPath).writeAsString(jsonEncode(header));
       }
     }
 
+    if (!mounted) return;
     final action = await showModalBottomSheet<String>(
       context: context,
       builder: (ctx) => SafeArea(
@@ -489,6 +502,13 @@ class _ExportPageState extends ConsumerState<ExportPage> {
           'sourcePath': finalPath,
           'fileName': finalName,
         });
+        if (headerPath != null) {
+          await const MethodChannel('lite_diary/file_picker')
+              .invokeMethod<bool>('saveFile', {
+            'sourcePath': headerPath,
+            'fileName': '_header.json',
+          });
+        }
         if (saved == true && mounted) {
           _showSnackBar('已保存 $entryCount 篇日记到下载目录');
         } else if (mounted) {
@@ -505,6 +525,18 @@ class _ExportPageState extends ConsumerState<ExportPage> {
         _showSnackBar('已导出 $entryCount 篇日记');
       }
     }
+  }
+
+  Future<String> _hashManifestFromZip(String zipPath) async {
+    final bytes = await File(zipPath).readAsBytes();
+    final archive = ZipDecoder().decodeBytes(bytes);
+    for (final file in archive) {
+      if (file.isFile && file.name == '_manifest.json') {
+        final content = utf8.decode(file.content as List<int>);
+        return sha256.convert(utf8.encode(content)).toString();
+      }
+    }
+    return sha256.convert(bytes).toString();
   }
 
   bool _inRange(DateTime date, _DateRange range) {

@@ -26,9 +26,9 @@ class AboutPage extends StatelessWidget {
           SizedBox(height: 4),
           Center(
             child: Chip(
-              label: const Text('测试版', style: TextStyle(fontSize: 11, color: Colors.orange)),
-              backgroundColor: const Color(0x1AFF9800),
-              side: const BorderSide(color: Colors.orange, width: 0.5),
+              label: Text('测试版', style: TextStyle(fontSize: 11, color: Colors.orange)),
+              backgroundColor: Color(0x1AFF9800),
+              side: BorderSide(color: Colors.orange, width: 0.5),
               visualDensity: VisualDensity.compact,
             ),
           ),
