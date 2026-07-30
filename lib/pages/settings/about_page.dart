@@ -23,6 +23,15 @@ class AboutPage extends StatelessWidget {
           Center(
             child: Text('v$appVersion', style: TextStyle(fontSize: 14, color: Colors.grey)),
           ),
+          SizedBox(height: 4),
+          Center(
+            child: Chip(
+              label: const Text('测试版', style: TextStyle(fontSize: 11, color: Colors.orange)),
+              backgroundColor: const Color(0x1AFF9800),
+              side: const BorderSide(color: Colors.orange, width: 0.5),
+              visualDensity: VisualDensity.compact,
+            ),
+          ),
           SizedBox(height: 24),
           Text(
             '一款简洁的私人日记应用，支持 Markdown 编辑、分组管理、标签系统、'

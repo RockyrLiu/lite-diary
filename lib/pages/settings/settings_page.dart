@@ -28,6 +28,13 @@ class SettingsPage extends StatelessWidget {
           ),
           const SectionHeader('导入 / 导出'),
           ListTile(
+            leading: const Icon(Icons.lock),
+            title: const Text('加密配置'),
+            subtitle: const Text('设置备份导出加密密码'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/encryption'),
+          ),
+          ListTile(
             leading: const Icon(Icons.file_upload),
             title: const Text('导入'),
             subtitle: const Text('从导出的文件恢复数据'),

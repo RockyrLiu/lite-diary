@@ -11,6 +11,8 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../database/database.dart';
 import '../../providers/database_provider.dart';
+import '../../providers/encryption_provider.dart';
+import '../../services/crypto_service.dart';
 import '../../services/lunar_calendar.dart';
 
 class ExportPage extends ConsumerStatefulWidget {
@@ -21,6 +23,23 @@ class ExportPage extends ConsumerStatefulWidget {
 }
 
 class _ExportPageState extends ConsumerState<ExportPage> {
+  bool _encrypt = false;
+  bool _hasEncryptionKey = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final cfg = await EncryptionConfig.load();
+      if (mounted) {
+        setState(() {
+          _hasEncryptionKey = cfg.keyHex.isNotEmpty;
+          _encrypt = _hasEncryptionKey;
+        });
+      }
+    });
+  }
+
   void _showSnackBar(String message, {bool error = false}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -437,20 +456,27 @@ class _ExportPageState extends ConsumerState<ExportPage> {
   // ── Helpers ──
 
   Future<void> _shareOrSave(String zipPath, String fileName, int entryCount) async {
+    String finalPath = zipPath;
+    String finalName = fileName;
+    if (_encrypt && _hasEncryptionKey) {
+      final cfg = await EncryptionConfig.load();
+      if (cfg.keyHex.isNotEmpty) {
+        final key = CryptoService.hexToKey(cfg.keyHex);
+        final zipBytes = await File(zipPath).readAsBytes();
+        final encrypted = CryptoService.encrypt(Uint8List.fromList(zipBytes), key);
+        final encPath = '$zipPath.enc';
+        await File(encPath).writeAsBytes(encrypted);
+        finalPath = encPath;
+        finalName = '$fileName.enc';
+      }
+    }
+
     final action = await showModalBottomSheet<String>(
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          ListTile(
-            leading: const Icon(Icons.share),
-            title: const Text('分享'),
-            onTap: () => Navigator.pop(ctx, 'share'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.folder),
-            title: const Text('保存到本地'),
-            onTap: () => Navigator.pop(ctx, 'save'),
-          ),
+          ListTile(leading: const Icon(Icons.share), title: const Text('分享'), onTap: () => Navigator.pop(ctx, 'share')),
+          ListTile(leading: const Icon(Icons.folder), title: const Text('保存到本地'), onTap: () => Navigator.pop(ctx, 'save')),
         ]),
       ),
     );
@@ -460,8 +486,8 @@ class _ExportPageState extends ConsumerState<ExportPage> {
       try {
         final saved = await const MethodChannel('lite_diary/file_picker')
             .invokeMethod<bool>('saveFile', {
-          'sourcePath': zipPath,
-          'fileName': fileName,
+          'sourcePath': finalPath,
+          'fileName': finalName,
         });
         if (saved == true && mounted) {
           _showSnackBar('已保存 $entryCount 篇日记到下载目录');
@@ -473,7 +499,7 @@ class _ExportPageState extends ConsumerState<ExportPage> {
       }
     } else {
       final result = await SharePlus.instance.share(ShareParams(
-        files: [XFile(zipPath)], subject: fileName, text: fileName,
+        files: [XFile(finalPath)], subject: finalName, text: finalName,
       ));
       if (result.status == ShareResultStatus.success && mounted) {
         _showSnackBar('已导出 $entryCount 篇日记');
@@ -528,6 +554,13 @@ class _ExportPageState extends ConsumerState<ExportPage> {
             title: '导出全部数据',
             subtitle: '导出全部分组中的所有内容',
             onTap: _exportAll,
+          ),
+          SwitchListTile(
+            secondary: const Icon(Icons.lock),
+            title: Text(_encrypt ? '加密导出' : '不加密'),
+            subtitle: Text(_hasEncryptionKey ? '使用加密配置中的密钥加密文件' : '请在"加密配置"中设置密码后启用'),
+            value: _encrypt,
+            onChanged: _hasEncryptionKey ? (v) => setState(() => _encrypt = v) : null,
           ),
         ],
       ),

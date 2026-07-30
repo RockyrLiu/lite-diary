@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../services/cloud_backup_service.dart';
+import '../../providers/encryption_provider.dart';
 
 class CloudPage extends ConsumerStatefulWidget {
   const CloudPage({super.key});
@@ -17,13 +17,22 @@ class _CloudPageState extends ConsumerState<CloudPage> {
   bool _checking = false;
   bool _loading = false;
   String? _status;
+  bool _encrypt = false;
+  bool _hasEncryptionKey = false;
 
   static const _fileName = 'backup.zip';
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final cfg = await EncryptionConfig.load();
+      if (mounted) {
+        setState(() {
+          _hasEncryptionKey = cfg.keyHex.isNotEmpty;
+          _encrypt = _hasEncryptionKey;
+        });
+      }
       _checkConnection();
     });
   }
@@ -93,6 +102,7 @@ class _CloudPageState extends ConsumerState<CloudPage> {
     try {
       final svc = CloudBackupService(ref);
       final result = await svc.backup(
+        encrypt: _encrypt,
         onProgress: (s) {
           if (mounted) setState(() => _status = s);
         },
@@ -243,18 +253,12 @@ class _CloudPageState extends ConsumerState<CloudPage> {
               ]);
             },
           ),
-          _sectionHeader('本地'),
-          ListTile(
-            onTap: () => context.push('/settings/export'),
-            leading: const Icon(Icons.file_download),
-            title: const Text('备份'),
-            subtitle: const Text('导出到本地文件'),
-          ),
-          ListTile(
-            onTap: () => context.push('/settings/import'),
-            leading: const Icon(Icons.file_upload),
-            title: const Text('恢复'),
-            subtitle: const Text('从文件导入'),
+          SwitchListTile(
+            secondary: const Icon(Icons.lock),
+            title: Text(_encrypt ? '加密' : '不加密'),
+            subtitle: Text(_hasEncryptionKey ? '使用加密配置中的密钥加密备份' : '请在"加密配置"中设置密码后启用'),
+            value: _encrypt,
+            onChanged: _hasEncryptionKey ? (v) => setState(() => _encrypt = v) : null,
           ),
           if (_status != null) ...[
             const SizedBox(height: 12),
@@ -308,6 +312,7 @@ class _WebDAVDialogState extends State<_WebDAVDialog> {
   late final userCtrl = TextEditingController(text: widget.initialUser);
   late final passwordCtrl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  bool _obscure = true;
 
   @override
   void dispose() {
@@ -357,10 +362,7 @@ class _WebDAVDialogState extends State<_WebDAVDialog> {
                 labelText: '服务器地址',
                 helperText: 'https://example.com/remote.php/dav/files/user/',
               ),
-              validator: (v) {
-                if (v == null || v.trim().isEmpty) return '请输入服务器地址';
-                return null;
-              },
+              validator: (v) => v == null || v.trim().isEmpty ? '请输入服务器地址' : null,
             ),
             const SizedBox(height: 12),
             TextFormField(
@@ -370,19 +372,20 @@ class _WebDAVDialogState extends State<_WebDAVDialog> {
                 border: OutlineInputBorder(),
                 labelText: '用户名',
               ),
-              validator: (v) {
-                if (v == null || v.trim().isEmpty) return '请输入用户名';
-                return null;
-              },
+              validator: (v) => v == null || v.trim().isEmpty ? '请输入用户名' : null,
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: passwordCtrl,
-              obscureText: true,
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.password),
-                border: OutlineInputBorder(),
+              obscureText: _obscure,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.password),
+                border: const OutlineInputBorder(),
                 labelText: '密码',
+                suffixIcon: IconButton(
+                  icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
+                  onPressed: () => setState(() => _obscure = !_obscure),
+                ),
               ),
             ),
           ],
@@ -390,19 +393,9 @@ class _WebDAVDialogState extends State<_WebDAVDialog> {
       ),
       actions: [
         if (widget.configured)
-          TextButton(
-            onPressed: _delete,
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('删除'),
-          ),
-        TextButton(
-          onPressed: _cancel,
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          onPressed: _save,
-          child: const Text('保存'),
-        ),
+          TextButton(onPressed: _delete, style: TextButton.styleFrom(foregroundColor: Colors.red), child: const Text('删除')),
+        TextButton(onPressed: _cancel, child: const Text('取消')),
+        FilledButton(onPressed: _save, child: const Text('保存')),
       ],
     );
   }

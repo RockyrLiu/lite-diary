@@ -10,10 +10,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../database/database.dart';
 import '../providers/database_provider.dart';
+import '../providers/encryption_provider.dart';
 import '../providers/entry_provider.dart';
 import '../providers/group_provider.dart';
 import '../providers/tag_provider.dart';
 import '../providers/calendar_data_provider.dart';
+import 'crypto_service.dart';
 import 'dav_service.dart';
 
 const _prefKeyDavUri = 'dav_uri';
@@ -26,6 +28,13 @@ class CloudBackupService {
   final AppDatabase db;
 
   CloudBackupService(this.ref) : db = ref.read(databaseProvider);
+
+  Future<(Uint8List, String)?> _encryptionContext() async {
+    final cfg = await EncryptionConfig.load();
+    if (cfg.keyHex.isEmpty) return null;
+    final key = CryptoService.hexToKey(cfg.keyHex);
+    return (key, cfg.salt);
+  }
 
   // ── WebDAV Config ──
 
@@ -68,6 +77,7 @@ class CloudBackupService {
   // ── Backup ──
 
   Future<({int uploaded, String message})> backup({
+    bool encrypt = false,
     void Function(String status)? onProgress,
   }) async {
     final client = await _createClient();
@@ -82,13 +92,13 @@ class CloudBackupService {
     final imageRecords = await _collectImages(entries);
 
     onProgress?.call('正在比对云端数据...');
-    final localMeta = _buildMetadata(entries);
-    final localMetaHash = _hashJson(localMeta);
+    final manifest = _buildManifest(entries);
+    final manifestHash = _hashJson(manifest);
 
-    final remoteMeta = await client.readJson('_metadata.json');
-    if (remoteMeta != null) {
-      final remoteHash = remoteMeta['hash'] as String? ?? '';
-      if (remoteHash == localMetaHash) {
+    final header = await client.readJson('_header.json');
+    if (header != null) {
+      final remoteHash = header['hash'] as String? ?? '';
+      if (remoteHash == manifestHash) {
         return (uploaded: 0, message: '已是最新，无需备份');
       }
     }
@@ -99,9 +109,8 @@ class CloudBackupService {
     final mdFile = File('${tempDir.path}/export.md');
     await mdFile.writeAsString(mdContent);
 
-    localMeta['hash'] = localMetaHash;
-    final metaFile = File('${tempDir.path}/_metadata.json');
-    await metaFile.writeAsString(jsonEncode(localMeta));
+    final manifestFile = File('${tempDir.path}/_manifest.json');
+    await manifestFile.writeAsString(jsonEncode(manifest));
 
     for (final r in imageRecords) {
       final dest = File('${tempDir.path}/${r.destPath}');
@@ -112,17 +121,39 @@ class CloudBackupService {
     final zipPath = '${tempDir.path}/backup.zip';
     final encoder = ZipFileEncoder()..create(zipPath);
     await encoder.addFile(mdFile, 'export.md');
-    await encoder.addFile(metaFile, '_metadata.json');
+    await encoder.addFile(manifestFile, '_manifest.json');
     for (final r in imageRecords) {
       await encoder.addFile(File('${tempDir.path}/${r.destPath}'), r.destPath);
     }
     await encoder.close();
 
-    onProgress?.call('正在上传 (${entries.length} 篇)...');
-    await client.uploadFile(zipPath, 'backup.zip');
-    await client.uploadString(jsonEncode(localMeta), '_metadata.json');
+    final encCtx = encrypt ? await _encryptionContext() : null;
+    final headerData = <String, dynamic>{
+      'hash': manifestHash,
+      'encrypted': encCtx != null,
+    };
+    String uploadPath = zipPath;
+    String uploadName = 'backup.zip';
 
-    await _saveSyncHash(localMetaHash);
+    if (encCtx != null) {
+      final (key, salt) = encCtx;
+      onProgress?.call('正在加密...');
+      final zipBytes = await File(zipPath).readAsBytes();
+      final encrypted = CryptoService.encrypt(Uint8List.fromList(zipBytes), key);
+      final encPath = '${tempDir.path}/backup.enc';
+      await File(encPath).writeAsBytes(encrypted);
+      uploadPath = encPath;
+      uploadName = 'backup.enc';
+      final ivHex = CryptoService.keyToHex(CryptoService.extractIv(encrypted));
+      headerData['salt'] = salt;
+      headerData['iv'] = ivHex;
+    }
+
+    onProgress?.call('正在上传...');
+    await client.uploadString(jsonEncode(headerData), '_header.json');
+    await client.uploadFile(uploadPath, uploadName);
+
+    await _saveSyncHash(manifestHash);
 
     return (uploaded: entries.length, message: '备份成功');
   }
@@ -137,12 +168,45 @@ class CloudBackupService {
       return (imported: 0, skipped: 0, message: '未配置 WebDAV');
     }
 
-    onProgress?.call('正在下载备份...');
-    final tempDir = await Directory.systemTemp.createTemp('cloud_restore_');
-    final zipPath = '${tempDir.path}/backup.zip';
-    final downloaded = await client.downloadFile('backup.zip', zipPath);
-    if (!downloaded) {
+    onProgress?.call('正在检查云端状态...');
+    final header = await client.readJson('_header.json');
+    if (header == null) {
       return (imported: 0, skipped: 0, message: '云端无备份数据');
+    }
+
+    final encrypted = header['encrypted'] as bool? ?? false;
+
+    final tempDir = await Directory.systemTemp.createTemp('cloud_restore_');
+    String dlName;
+    if (encrypted) {
+      dlName = 'backup.enc';
+    } else {
+      final hasOld = await client.readJson('_metadata.json') != null;
+      dlName = hasOld ? 'backup.zip' : 'backup.zip';
+    }
+
+    onProgress?.call('正在下载备份...');
+    final dlPath = '${tempDir.path}/$dlName';
+    final downloaded = await client.downloadFile(dlName, dlPath);
+    if (!downloaded) {
+      return (imported: 0, skipped: 0, message: '下载失败');
+    }
+
+    String zipPath = dlPath;
+
+    if (encrypted) {
+      onProgress?.call('正在解密...');
+      final encCfg = await EncryptionConfig.load();
+      Uint8List key;
+      if (encCfg.keyHex.isNotEmpty) {
+        key = CryptoService.hexToKey(encCfg.keyHex);
+      } else {
+        return (imported: 0, skipped: 0, message: '未配置加密密钥');
+      }
+      final encBytes = await File(dlPath).readAsBytes();
+      final decrypted = CryptoService.decrypt(Uint8List.fromList(encBytes), key);
+      zipPath = '${tempDir.path}/backup.zip';
+      await File(zipPath).writeAsBytes(decrypted);
     }
 
     onProgress?.call('正在解压...');
@@ -152,7 +216,7 @@ class CloudBackupService {
     await Directory(extractDir).create(recursive: true);
 
     String? mdContent;
-    final imageFiles = <String, String>{}; // name -> extract path
+    final imageFiles = <String, String>{};
     for (final file in archive) {
       if (file.isFile) {
         final outPath = '$extractDir/${file.name}';
@@ -172,6 +236,27 @@ class CloudBackupService {
     }
 
     onProgress?.call('正在导入...');
+    final result = await _importEntries(mdContent, imageFiles, onProgress);
+    ref.invalidate(allEntriesProvider);
+    ref.invalidate(allGroupsProvider);
+    ref.invalidate(allTagsProvider);
+    ref.invalidate(calendarDateCountsProvider);
+
+    final newHeader = await client.readJson('_header.json');
+    if (newHeader != null) {
+      await _saveSyncHash(newHeader['hash'] as String? ?? '');
+    }
+
+    return result;
+  }
+
+  // ── Common Import Logic ──
+
+  Future<({int imported, int skipped, String message})> _importEntries(
+    String mdContent,
+    Map<String, String> imageFiles,
+    void Function(String)? onProgress,
+  ) async {
     final parsed = _parseMd(mdContent);
     int imported = 0;
     int skipped = 0;
@@ -185,19 +270,13 @@ class CloudBackupService {
 
     for (final entryData in parsed) {
       final date = _parseDate(entryData['date']);
-      if (date == null) {
-        skipped++;
-        continue;
-      }
+      if (date == null) { skipped++; continue; }
 
       final hash = entryData['hash'] ?? '';
-      final hasCreatedAt = entryData['created_at'] != null &&
-          entryData['created_at']!.isNotEmpty;
-      final createdAt =
-          hasCreatedAt ? _parseDateTime(entryData['created_at']) ?? date : null;
+      final hasCreatedAt = entryData['created_at'] != null && entryData['created_at']!.isNotEmpty;
+      final createdAt = hasCreatedAt ? _parseDateTime(entryData['created_at']) ?? date : null;
       final updatedAt = _parseDateTime(entryData['updated_at']) ?? date;
 
-      // Dedup: hash first (content-unique), created_at as fallback
       Entry? existing;
       if (hash.isNotEmpty) {
         existing = await db.getEntryByHash(hash);
@@ -206,11 +285,7 @@ class CloudBackupService {
         existing = await db.getEntryByCreatedAt(createdAt);
       }
       if (existing != null) {
-        if (existing.updatedAt.isAtSameMomentAs(updatedAt) ||
-            existing.updatedAt.isAfter(updatedAt)) {
-          skipped++; continue;
-        }
-        // Cloud entry is newer — update
+        if (!existing.updatedAt.isBefore(updatedAt)) { skipped++; continue; }
         await db.updateEntry(existing.id, EntriesCompanion(
           title: Value(entryData['title']),
           content: Value(entryData['content'] ?? ''),
@@ -219,8 +294,7 @@ class CloudBackupService {
           weather: Value(entryData['weather']),
           location: Value(entryData['location']),
         ));
-        imported++;
-        continue;
+        imported++; continue;
       }
 
       final groupName = entryData['group'] ?? '日记';
@@ -228,8 +302,7 @@ class CloudBackupService {
       if (groupNameMap.containsKey(groupName)) {
         groupId = groupNameMap[groupName]!;
       } else {
-        groupId = await db
-            .createGroup(GroupsCompanion(name: Value(groupName)));
+        groupId = await db.createGroup(GroupsCompanion(name: Value(groupName)));
         groupNameMap[groupName] = groupId;
       }
 
@@ -243,76 +316,45 @@ class CloudBackupService {
           await destFile.parent.create(recursive: true);
           await File(srcPath).copy(destPath);
         }
-        body = [
-          ...body.split(relPath)
-        ].join(destPath);
+        body = body.replaceAll(relPath, destPath);
       }
 
-      final dateStr =
-          '${date.year}年${date.month}月${date.day}日';
-      final title = (entryData['title'] != null &&
-              entryData['title']!.isNotEmpty)
-          ? entryData['title']
-          : dateStr;
+      final dateStr = '${date.year}年${date.month}月${date.day}日';
+      final title = (entryData['title'] != null && entryData['title']!.isNotEmpty) ? entryData['title'] : dateStr;
 
-      final effectiveCreatedAt = createdAt ??
-          DateTime(date.year, date.month, date.day,
-              DateTime.now().hour, DateTime.now().minute);
+      final effectiveCreatedAt = createdAt ?? DateTime(date.year, date.month, date.day, DateTime.now().hour, DateTime.now().minute);
 
       final entryId = await db.createEntry(EntriesCompanion(
-        title: Value(title),
-        date: Value(date),
-        content: Value(body),
-        groupId: Value(groupId),
-        weather: Value(entryData['weather']),
-        location: Value(entryData['location']),
-        createdAt: Value(effectiveCreatedAt),
+        title: Value(title), date: Value(date), content: Value(body),
+        groupId: Value(groupId), weather: Value(entryData['weather']),
+        location: Value(entryData['location']), createdAt: Value(effectiveCreatedAt),
         updatedAt: Value(updatedAt),
-        hash: Value((entryData['hash'] ?? '').isEmpty
-            ? _computeHash(date, body)
-            : entryData['hash']!),
+        hash: Value((entryData['hash'] ?? '').isEmpty ? _computeHash(date, body) : entryData['hash']!),
       ));
 
       final tagsStr = entryData['tags'];
       if (tagsStr != null && tagsStr.isNotEmpty) {
-        for (final tagName in tagsStr
-            .split(',')
-            .map((t) => t.trim())
-            .where((t) => t.isNotEmpty)) {
+        for (final tagName in tagsStr.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty)) {
           int tagId;
           if (tagNameMap.containsKey(tagName)) {
             tagId = tagNameMap[tagName]!;
           } else {
-            tagId = await db
-                .createTag(TagsCompanion(name: Value(tagName)));
+            tagId = await db.createTag(TagsCompanion(name: Value(tagName)));
             tagNameMap[tagName] = tagId;
           }
           await db.attachTag(entryId, tagId);
         }
       }
-
       imported++;
-    }
-
-    ref.invalidate(allEntriesProvider);
-    ref.invalidate(allGroupsProvider);
-    ref.invalidate(allTagsProvider);
-    ref.invalidate(calendarDateCountsProvider);
-
-    final remoteMeta = await client.readJson('_metadata.json');
-    if (remoteMeta != null) {
-      await _saveSyncHash(remoteMeta['hash'] as String? ?? '');
     }
 
     return (imported: imported, skipped: skipped, message: '恢复完成');
   }
 
-  // ── Helpers ──
+  // ── Manifest / Header ──
 
-  Map<String, dynamic> _buildMetadata(List<Entry> entries) {
+  Map<String, dynamic> _buildManifest(List<Entry> entries) {
     return {
-      'version': 1,
-      'generated_at': DateTime.now().toIso8601String(),
       'count': entries.length,
       'entries': entries
           .map((e) => {
@@ -321,8 +363,7 @@ class CloudBackupService {
                 'updated_at': _dateTimeStr(e.updatedAt),
               })
           .toList()
-        ..sort((a, b) =>
-            (a['created_at'] as String).compareTo(b['created_at'] as String)),
+        ..sort((a, b) => (a['created_at'] as String).compareTo(b['created_at'] as String)),
     };
   }
 
@@ -331,8 +372,7 @@ class CloudBackupService {
   }
 
   String _computeHash(DateTime date, String content) {
-    final ds =
-        '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    final ds = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
     return sha256.convert(utf8.encode('$ds|$content')).toString();
   }
 
@@ -340,6 +380,8 @@ class CloudBackupService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefKeySyncHash, hash);
   }
+
+  // ── Export MD ──
 
   String _buildExportMd(List<Entry> entries, List<Group> groups,
       Map<int, List<String>> tagMap, List<_ImageBackup> images) {
@@ -351,7 +393,6 @@ class CloudBackupService {
       for (final img in images.where((r) => r.entryId == e.id)) {
         content = content.replaceAll(img.originalPath, img.destPath);
       }
-
       buf.writeln('> date: ${_dateStr(e.date)}');
       if (e.title != null && e.title!.isNotEmpty) {
         buf.writeln('> title: ${e.title}');
@@ -369,8 +410,7 @@ class CloudBackupService {
       }
       buf.writeln('> created_at: ${_dateTimeStr(e.createdAt)}');
       buf.writeln('> updated_at: ${_dateTimeStr(e.updatedAt)}');
-      final hash = e.hash ?? _computeHash(e.date, e.content);
-      buf.writeln('> hash: $hash');
+      buf.writeln('> hash: ${e.hash ?? _computeHash(e.date, e.content)}');
       buf.writeln();
       buf.writeln(content);
       buf.writeln();
@@ -386,23 +426,18 @@ class CloudBackupService {
     final appDir = await getApplicationDocumentsDirectory();
     final records = <_ImageBackup>[];
     for (final e in entries) {
-      final images = await (db.select(db.images)
-            ..where((i) => i.entryId.equals(e.id)))
-          .get();
+      final images = await (db.select(db.images)..where((i) => i.entryId.equals(e.id))).get();
       for (final img in images) {
         final absPath = '${appDir.path}/${img.filePath}';
         if (await File(absPath).exists()) {
-          records.add(_ImageBackup(
-            sourcePath: absPath,
-            destPath: img.filePath,
-            originalPath: absPath,
-            entryId: e.id,
-          ));
+          records.add(_ImageBackup(sourcePath: absPath, destPath: img.filePath, originalPath: absPath, entryId: e.id));
         }
       }
     }
     return records;
   }
+
+  // ── Parse MD ──
 
   List<Map<String, String>> _parseMd(String content) {
     final entries = <Map<String, String>>[];
@@ -418,9 +453,7 @@ class CloudBackupService {
           final rest = line.substring(2);
           final colonIdx = rest.indexOf(':');
           if (colonIdx > 0) {
-            final key = rest.substring(0, colonIdx).trim();
-            final value = rest.substring(colonIdx + 1).trim();
-            meta[key] = value;
+            meta[rest.substring(0, colonIdx).trim()] = rest.substring(colonIdx + 1).trim();
           }
         } else if (inMeta && line.isEmpty) {
           continue;
@@ -441,9 +474,7 @@ class CloudBackupService {
     if (s == null || s.isEmpty) return null;
     final parts = s.split('-');
     if (parts.length != 3) return null;
-    final y = int.tryParse(parts[0]);
-    final m = int.tryParse(parts[1]);
-    final d = int.tryParse(parts[2]);
+    final y = int.tryParse(parts[0]), m = int.tryParse(parts[1]), d = int.tryParse(parts[2]);
     if (y == null || m == null || d == null) return null;
     return DateTime(y, m, d);
   }
@@ -454,19 +485,14 @@ class CloudBackupService {
     final date = _parseDate(parts[0]);
     if (date == null || parts.length < 2) return date;
     final timeParts = parts[1].split(':');
-    final h = int.tryParse(timeParts[0]);
-    final min = int.tryParse(timeParts[1]);
+    final h = int.tryParse(timeParts[0]), min = int.tryParse(timeParts[1]);
     final sec = timeParts.length > 2 ? int.tryParse(timeParts[2]) : null;
     if (h == null || min == null) return date;
     return DateTime(date.year, date.month, date.day, h, min, sec ?? 0);
   }
 
-  String _dateStr(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-
-  String _dateTimeStr(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')} '
-      '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}:${d.second.toString().padLeft(2, '0')}';
+  String _dateStr(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  String _dateTimeStr(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')} ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}:${d.second.toString().padLeft(2, '0')}';
 }
 
 class _ImageBackup {
@@ -474,10 +500,5 @@ class _ImageBackup {
   final String destPath;
   final String originalPath;
   final int entryId;
-  const _ImageBackup({
-    required this.sourcePath,
-    required this.destPath,
-    required this.originalPath,
-    required this.entryId,
-  });
+  const _ImageBackup({required this.sourcePath, required this.destPath, required this.originalPath, required this.entryId});
 }

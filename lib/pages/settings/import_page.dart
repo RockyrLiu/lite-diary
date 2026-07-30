@@ -11,10 +11,12 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../database/database.dart';
 import '../../providers/database_provider.dart';
+import '../../providers/encryption_provider.dart';
 import '../../providers/entry_provider.dart';
 import '../../providers/group_provider.dart';
 import '../../providers/tag_provider.dart';
 import '../../providers/calendar_data_provider.dart';
+import '../../services/crypto_service.dart';
 
 class ImportPage extends ConsumerStatefulWidget {
   const ImportPage({super.key});
@@ -47,6 +49,29 @@ class _ImportPageState extends ConsumerState<ImportPage> {
     }
     setState(() => _importing = true);
 
+    String actualPath = filePath;
+    final isEnc = fileName.endsWith('.enc');
+    if (isEnc) {
+      final cfg = await EncryptionConfig.load();
+      if (cfg.keyHex.isEmpty) {
+        _showResult('加密文件需要先配置加密密钥');
+        setState(() => _importing = false);
+        return;
+      }
+      try {
+        final key = CryptoService.hexToKey(cfg.keyHex);
+        final encBytes = await File(filePath).readAsBytes();
+        final decrypted = CryptoService.decrypt(Uint8List.fromList(encBytes), key);
+        final decPath = '$filePath.dec';
+        await File(decPath).writeAsBytes(decrypted);
+        actualPath = decPath;
+      } catch (_) {
+        _showResult('解密失败，请检查加密密钥');
+        setState(() => _importing = false);
+        return;
+      }
+    }
+
     int importedCount = 0;
     int skippedCount = 0;
 
@@ -56,9 +81,9 @@ class _ImportPageState extends ConsumerState<ImportPage> {
       final Map<String, String> imagePathMap = {};
 
       if (isZip) {
-        content = await _extractZip(filePath, imagePathMap);
+        content = await _extractZip(actualPath, imagePathMap);
       } else {
-        content = await File(filePath).readAsString();
+        content = await File(actualPath).readAsString();
       }
 
       final entries = _parseMarkdown(content);

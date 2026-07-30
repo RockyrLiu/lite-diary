@@ -13,6 +13,7 @@ import 'pages/settings/import_page.dart';
 import 'pages/settings/cloud_page.dart';
 import 'pages/settings/about_page.dart';
 import 'pages/settings/display_page.dart';
+import 'pages/settings/encryption_settings_page.dart';
 import 'pages/settings/on_this_day_filter_page.dart';
 import 'services/tab_notifier.dart';
 
@@ -65,6 +66,7 @@ GoRouter _buildRouter({
         GoRoute(path: 'export', builder: (context, state) => const ExportPage()),
         GoRoute(path: 'import', builder: (context, state) => const ImportPage()),
         GoRoute(path: 'cloud', builder: (context, state) => const CloudPage()),
+        GoRoute(path: 'encryption', builder: (context, state) => const EncryptionSettingsPage()),
         GoRoute(path: 'filters', builder: (context, state) => const OnThisDayFilterPage()),
       ]),
     ]));
