@@ -30,6 +30,9 @@ class _ExportPageState extends ConsumerState<ExportPage> {
   // ── Date range dialog ──
 
   Future<_DateRange?> _pickDateRange() async {
+    if (mounted) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+    }
     final startCtrl = TextEditingController(
         text: '${DateTime.now().year}-01-01');
     final endCtrl = TextEditingController(
