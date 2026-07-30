@@ -201,6 +201,25 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
     ref.invalidate(calendarDateCountsProvider);
   }
 
+  Future<void> _refreshCurrentEntry() async {
+    _saveTimer?.cancel();
+    await _saveNow();
+    final refreshedEntries = await db.getEntriesByDate(_currentDate);
+    if (!mounted) return;
+    setState(() {
+      _currentEntries = refreshedEntries;
+      if (_currentEntries.isEmpty) {
+        _currentEntryIndex = 0;
+      } else if (_currentEntryIndex >= refreshedEntries.length) {
+        _currentEntryIndex = refreshedEntries.length - 1;
+      }
+    });
+    _loadCurrentEntry();
+    ref.invalidate(entriesByDateProvider(_currentDate));
+    ref.invalidate(allEntriesProvider);
+    ref.invalidate(calendarDateCountsProvider);
+  }
+
   void _loadCurrentEntry() {
     if (_currentEntries.isNotEmpty && _currentEntryIndex < _currentEntries.length) {
       final entry = _currentEntries[_currentEntryIndex];
@@ -674,7 +693,12 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
       body: Column(
         children: [
           Expanded(
-            child: GestureDetector(
+            child: RefreshIndicator(
+              onRefresh: _refreshCurrentEntry,
+              notificationPredicate: _editorMode == EditorMode.preview
+                  ? defaultScrollNotificationPredicate
+                  : (_) => false,
+              child: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onHorizontalDragEnd: (details) {
           if (_editorMode == EditorMode.source) return;
@@ -700,6 +724,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
             child: _buildContentPane(renderSettings),
           ),
         ),
+      ),
       ),
     ),
     _buildStatusBar(),
