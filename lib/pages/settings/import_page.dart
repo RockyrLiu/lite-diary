@@ -63,18 +63,44 @@ class _ImportPageState extends ConsumerState<ImportPage> {
 
       final entries = _parseMarkdown(content);
       for (final entryData in entries) {
-        final hash = entryData['hash'] ?? '';
-        if (hash.isNotEmpty) {
-          final existing = await db.getEntryByHash(hash);
-          if (existing != null) {
-            skippedCount++;
-            continue;
-          }
-        }
-
         final date = _parseDate(entryData['date'] ?? '');
         if (date == null) {
           skippedCount++;
+          continue;
+        }
+
+        final body = entryData['content'] ?? '';
+        final hash = entryData['hash'] ?? '';
+        final hasCreatedAt = entryData['created_at'] != null &&
+            entryData['created_at']!.isNotEmpty;
+        final createdAt =
+            hasCreatedAt ? _parseDateTime(entryData['created_at']) ?? date : null;
+        final updatedAt = _parseDateTime(entryData['updated_at']) ?? date;
+
+        // Dedup: hash first (content-unique), created_at as fallback
+        Entry? existing;
+        if (hash.isNotEmpty) {
+          existing = await db.getEntryByHash(hash);
+        }
+        if (existing == null && createdAt != null) {
+          existing = await db.getEntryByCreatedAt(createdAt);
+        }
+        if (existing != null) {
+          if (existing.updatedAt.isAtSameMomentAs(updatedAt) ||
+              existing.updatedAt.isAfter(updatedAt)) {
+            skippedCount++;
+            continue;
+          }
+          // Cloud entry is newer — update
+          await db.updateEntry(existing.id, EntriesCompanion(
+            title: Value(entryData['title']),
+            content: Value(body),
+            hash: Value(hash.isNotEmpty ? hash : _computeHash(date, body)),
+            updatedAt: Value(updatedAt),
+            weather: Value(entryData['weather']),
+            location: Value(entryData['location']),
+          ));
+          importedCount++;
           continue;
         }
 
@@ -83,11 +109,11 @@ class _ImportPageState extends ConsumerState<ImportPage> {
         final title = (entryData['title'] != null && entryData['title']!.isNotEmpty)
             ? entryData['title']
             : dateStr;
-        final body = entryData['content'] ?? '';
         final weather = entryData['weather'];
         final location = entryData['location'];
-        final createdAt = _parseDateTime(entryData['created_at']) ?? date;
-        final updatedAt = _parseDateTime(entryData['updated_at']) ?? date;
+        final effectiveCreatedAt = createdAt ??
+            DateTime(date.year, date.month, date.day,
+                DateTime.now().hour, DateTime.now().minute);
 
         // Replace image paths if importing from zip
         var processedContent = body;
@@ -104,7 +130,7 @@ class _ImportPageState extends ConsumerState<ImportPage> {
           groupId: Value(groupId),
           weather: Value(weather),
           location: Value(location),
-          createdAt: Value(createdAt),
+          createdAt: Value(effectiveCreatedAt),
           updatedAt: Value(updatedAt),
           hash: Value(hash.isNotEmpty ? hash : _computeHash(date, processedContent)),
         ));
@@ -198,6 +224,8 @@ class _ImportPageState extends ConsumerState<ImportPage> {
             final value = rest.substring(colonIdx + 1).trim();
             meta[key] = value;
           }
+        } else if (inMeta && line.isEmpty) {
+          continue;
         } else {
           inMeta = false;
           contentLines.add(line);
@@ -245,8 +273,9 @@ class _ImportPageState extends ConsumerState<ImportPage> {
     final timeParts = parts[1].split(':');
     final h = int.tryParse(timeParts[0]);
     final min = int.tryParse(timeParts[1]);
+    final sec = timeParts.length > 2 ? int.tryParse(timeParts[2]) : null;
     if (h == null || min == null) return date;
-    return DateTime(date.year, date.month, date.day, h, min);
+    return DateTime(date.year, date.month, date.day, h, min, sec ?? 0);
   }
 
   String _computeHash(DateTime date, String content) {

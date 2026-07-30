@@ -172,7 +172,7 @@ class _CalendarViewPageState extends ConsumerState<_CalendarViewPage>
       AsyncValue<List<Entry>> entriesAsync, AsyncValue<List<Group>> groupsAsync) {
     final entries = entriesAsync.valueOrNull;
     final groups = groupsAsync.valueOrNull;
-    if (entries == null || groups == null || entries.isEmpty) {
+    if (entries == null || groups == null || entries.isEmpty || groups.isEmpty) {
       return const SizedBox.shrink();
     }
 

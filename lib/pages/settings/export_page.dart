@@ -418,10 +418,13 @@ class _ExportPageState extends ConsumerState<ExportPage> {
       'exported_at': _dateTimeStr(DateTime.now()),
       'entries': entries
           .map((e) => {
+                'created_at': _dateTimeStr(e.createdAt),
                 'hash': e.hash ?? _computeHash(e.date, e.content),
                 'updated_at': _dateTimeStr(e.updatedAt),
               })
-          .toList(),
+          .toList()
+        ..sort((a, b) =>
+            (a['created_at'] as String).compareTo(b['created_at'] as String)),
     });
 
     final zipPath = await _buildZip(fileName, buffer, imageRecords,
@@ -489,7 +492,7 @@ class _ExportPageState extends ConsumerState<ExportPage> {
 
   String _dateTimeStr(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')} '
-      '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+      '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}:${d.second.toString().padLeft(2, '0')}';
 
   String _computeHash(DateTime date, String content) {
     final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';

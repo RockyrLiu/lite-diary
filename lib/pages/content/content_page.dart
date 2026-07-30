@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' hide isNull, isNotNull, Column;
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../database/database.dart';
 import '../../providers/database_provider.dart';
@@ -46,6 +47,14 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   String _location = '';
 
   AppDatabase get db => ref.read(databaseProvider);
+
+  bool _listEquals(List<Entry> a, List<Entry> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id) return false;
+    }
+    return true;
+  }
 
   String? _extractTitle(String content) {
     final firstLine = content.split('\n').first.trim();
@@ -136,6 +145,8 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
     if (content.isEmpty) {
       if (_editingEntryId != null) {
         await db.deleteEntry(_editingEntryId!);
+        SharedPreferences.getInstance()
+            .then((p) => p.remove('cloud_sync_hash'));
         _editingEntryId = null;
         final refreshedEntries = await db.getEntriesByDate(_currentDate);
         if (mounted) {
@@ -558,6 +569,23 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   Widget build(BuildContext context) {
     final dateStr = '${_currentDate.year}年${_currentDate.month}月${_currentDate.day}日';
     final renderSettings = ref.watch(renderingSettingsProvider);
+    final externalEntries = ref.watch(entriesByDateProvider(_currentDate));
+
+    externalEntries.whenOrNull(data: (entries) {
+      if (!_hasUnsavedChanges &&
+          (entries.length != _currentEntries.length ||
+              (_currentEntries.isNotEmpty && !_listEquals(entries, _currentEntries)))) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              _currentEntries = entries;
+              _currentEntryIndex = 0;
+            });
+            _loadCurrentEntry();
+          }
+        });
+      }
+    });
 
     return Scaffold(
       appBar: AppBar(

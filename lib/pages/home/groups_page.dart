@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' hide isNull, isNotNull, Column;
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../database/database.dart';
 import '../../providers/calendar_data_provider.dart';
@@ -81,7 +82,7 @@ class _GroupsPageState extends ConsumerState<GroupsPage> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('删除日记'),
+        title: const Text('删除条目'),
         content: Text('确定删除"${entry.title ?? '无标题'}"？'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
@@ -95,6 +96,8 @@ class _GroupsPageState extends ConsumerState<GroupsPage> {
       ref.invalidate(entriesByGroupProvider(entry.groupId));
       ref.invalidate(allEntriesProvider);
       ref.invalidate(calendarDateCountsProvider);
+      SharedPreferences.getInstance()
+          .then((p) => p.remove('cloud_sync_hash'));
     }
   }
 

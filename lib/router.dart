@@ -9,6 +9,7 @@ import 'pages/llm/llm_page.dart';
 import 'pages/settings/settings_page.dart';
 import 'pages/settings/export_page.dart';
 import 'pages/settings/import_page.dart';
+import 'pages/settings/cloud_page.dart';
 import 'pages/settings/about_page.dart';
 import 'pages/settings/display_page.dart';
 import 'pages/settings/on_this_day_filter_page.dart';
@@ -58,11 +59,11 @@ GoRouter _buildRouter({
     branches.add(StatefulShellBranch(routes: [
       GoRoute(path: '/settings', builder: (context, state) => const SettingsPage(), routes: [
         GoRoute(path: 'display', builder: (context, state) => const DisplayPage()),
-        GoRoute(path: 'cloud', builder: (context, state) => const SettingsPage()),
         GoRoute(path: 'llm', builder: (context, state) => const SettingsPage()),
         GoRoute(path: 'about', builder: (context, state) => const AboutPage()),
         GoRoute(path: 'export', builder: (context, state) => const ExportPage()),
         GoRoute(path: 'import', builder: (context, state) => const ImportPage()),
+        GoRoute(path: 'cloud', builder: (context, state) => const CloudPage()),
         GoRoute(path: 'filters', builder: (context, state) => const OnThisDayFilterPage()),
       ]),
     ]));

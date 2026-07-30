@@ -77,6 +77,11 @@ class AppDatabase extends _$AppDatabase {
     return (select(entries)..where((e) => e.hash.equals(hash))).getSingleOrNull();
   }
 
+  Future<Entry?> getEntryByCreatedAt(DateTime createdAt) {
+    return (select(entries)..where((e) => e.createdAt.equals(createdAt)))
+        .getSingleOrNull();
+  }
+
   // ========== Group ==========
 
   Future<int> createGroup(GroupsCompanion group) {
