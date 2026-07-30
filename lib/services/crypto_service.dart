@@ -26,7 +26,7 @@ class CryptoService {
 
   static Uint8List encrypt(Uint8List plaintext, Uint8List keyBytes) {
     final key = enc.Key(keyBytes);
-    final iv = enc.IV(Uint8List(16));
+    final iv = enc.IV.fromSecureRandom(16);
     final encrypter = enc.Encrypter(enc.AES(key, mode: enc.AESMode.gcm));
     final encrypted = encrypter.encryptBytes(plaintext, iv: iv);
     return Uint8List.fromList(iv.bytes + encrypted.bytes);

@@ -329,7 +329,7 @@ class _ImportPageState extends ConsumerState<ImportPage> {
             : Column(mainAxisSize: MainAxisSize.min, children: [
                 const Icon(Icons.file_upload, size: 64, color: Colors.grey),
                 const SizedBox(height: 16),
-                const Text('选择导出的 .md 或 .zip 文件', style: TextStyle(color: Colors.grey)),
+                const Text('选择导出的 .zip 或 .enc 文件', style: TextStyle(color: Colors.grey)),
                 const SizedBox(height: 24),
                 FilledButton.icon(
                   onPressed: _pickAndImport,
