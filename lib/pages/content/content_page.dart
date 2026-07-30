@@ -217,6 +217,9 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
     _saveNow();
     final entries = await db.getAllEntries();
     final dates = entries.map((e) => DateTime(e.date.year, e.date.month, e.date.day)).toSet().toList()..sort();
+    final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+    if (!dates.any((d) => d == today)) dates.add(today);
+    dates.sort();
     final currentKey = DateTime(_currentDate.year, _currentDate.month, _currentDate.day);
     final nextDate = dates.firstWhere((d) => d.isAfter(currentKey), orElse: () => _currentDate);
     if (nextDate != _currentDate) await _goToDate(nextDate, true);
@@ -226,6 +229,9 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
     _saveNow();
     final entries = await db.getAllEntries();
     final dates = entries.map((e) => DateTime(e.date.year, e.date.month, e.date.day)).toSet().toList()..sort();
+    final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+    if (!dates.any((d) => d == today)) dates.add(today);
+    dates.sort();
     final currentKey = DateTime(_currentDate.year, _currentDate.month, _currentDate.day);
     final prevDate = dates.reversed.firstWhere((d) => d.isBefore(currentKey), orElse: () => _currentDate);
     if (prevDate != _currentDate) await _goToDate(prevDate, false);
@@ -450,6 +456,15 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   }
 
   Widget _buildContentPane(RenderingSettings renderSettings) {
+    if (_currentEntries.isEmpty && _editingEntryId == null && _isToday(_currentDate)) {
+      return const Column(children: [
+        Expanded(
+          child: Center(
+              child: Text('今日无事',
+                  style: TextStyle(fontSize: 16, color: Colors.grey))),
+        ),
+      ]);
+    }
     return Column(children: [
       if (_editingEntryId != null)
         TagEditor(key: ValueKey(_editingEntryId), entryId: _editingEntryId!, readOnly: _editorMode != EditorMode.source),
@@ -462,6 +477,72 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
     ]);
   }
 
+  bool _isToday(DateTime d) {
+    final now = DateTime.now();
+    return d.year == now.year && d.month == now.month && d.day == now.day;
+  }
+
+  String _dateStr(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  bool _parseDate(String s) {
+    final parts = s.split('-');
+    if (parts.length != 3) return false;
+    final y = int.tryParse(parts[0]), m = int.tryParse(parts[1]), d2 = int.tryParse(parts[2]);
+    return y != null && m != null && d2 != null && m >= 1 && m <= 12 && d2 >= 1 && d2 <= 31;
+  }
+
+  Future<void> _pickDate() async {
+    final ctrl = TextEditingController(text: _dateStr(_currentDate));
+    String? errorText;
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('跳转到指定日期'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: ctrl,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: '2024-01-01',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              if (errorText != null) ...[
+                const SizedBox(height: 8),
+                Text(errorText!, style: TextStyle(color: Colors.red.shade700, fontSize: 13)),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+            FilledButton(
+              onPressed: () {
+                final text = ctrl.text.trim();
+                if (!_parseDate(text)) {
+                  setDialogState(() => errorText = '日期格式错误，请使用 yyyy-MM-dd');
+                  return;
+                }
+                Navigator.pop(ctx, text);
+              },
+              child: const Text('确定'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (result != null && mounted) {
+      final parts = result.split('-');
+      final target = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+      await _goToDate(target, target.isAfter(_currentDate));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final dateStr = '${_currentDate.year}年${_currentDate.month}月${_currentDate.day}日';
@@ -469,7 +550,16 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
 
     return Scaffold(
       appBar: AppBar(
-        title: Column(children: [Text(dateStr), if (_currentEntries.length > 1) Text('${_currentEntryIndex + 1}/${_currentEntries.length}', style: const TextStyle(fontSize: 12))]),
+        title: GestureDetector(
+          onTap: _pickDate,
+          behavior: HitTestBehavior.opaque,
+          child: Column(children: [
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              Text(dateStr, style: const TextStyle(fontWeight: FontWeight.bold)),
+            ]),
+            if (_currentEntries.length > 1) Text('${_currentEntryIndex + 1}/${_currentEntries.length}', style: const TextStyle(fontSize: 12)),
+          ]),
+        ),
         actions: [
           if (_currentEntries.length > 1) ...[
             IconButton(icon: const Icon(Icons.arrow_upward), onPressed: _goToPreviousEntry),
@@ -491,6 +581,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
         children: [
           Expanded(
             child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
         onHorizontalDragEnd: (details) {
           if (details.primaryVelocity != null) {
             if (details.primaryVelocity! < -50) { _goToNextDate(); } else if (details.primaryVelocity! > 50) { _goToPreviousDate(); }

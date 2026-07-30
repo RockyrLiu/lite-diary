@@ -51,7 +51,7 @@ class _OnThisDayPageState extends ConsumerState<OnThisDayPage> {
     return Scaffold(
       appBar: AppBar(title: Text('${today.month}月${today.day}日 — 那年今日')),
       body: _entries.isEmpty
-          ? const Center(child: Text('往年的今天还没有日记'))
+          ? const Center(child: Text('往年今日无事', style: TextStyle(fontSize: 16)))
           : ListView.builder(
               padding: const EdgeInsets.only(bottom: 32),
               itemCount: _entries.length,

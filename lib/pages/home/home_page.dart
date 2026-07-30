@@ -116,8 +116,6 @@ class _CalendarViewPageState extends ConsumerState<_CalendarViewPage>
 
     return countsAsync.when(
       data: (counts) {
-        if (counts.isEmpty) return const Center(child: Text('还没有日记，点击右下角 + 开始记录'));
-
         final entries = entriesAsync.valueOrNull;
         final groups = groupsAsync.valueOrNull;
         final pick = ref.watch(randomPoetryPickProvider);
