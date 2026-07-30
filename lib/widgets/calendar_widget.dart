@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:diary_lite/services/lunar_calendar.dart';
+import 'package:lite_diary/services/lunar_calendar.dart';
 
 class CalendarData {
   final Map<DateTime, int> dateCounts;

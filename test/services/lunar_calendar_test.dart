@@ -1,4 +1,4 @@
-import 'package:diary_lite/services/lunar_calendar.dart';
+import 'package:lite_diary/services/lunar_calendar.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

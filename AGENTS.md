@@ -1,4 +1,4 @@
-# AGENTS.md — diary_lite
+# AGENTS.md — lite_diary
 
 ## 项目概述
 Flutter 日记应用，主要运行场景为 Android 移动端。附带支持 Linux/Windows/Web，但非主要目标。

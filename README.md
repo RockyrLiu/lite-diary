@@ -1,4 +1,4 @@
-# 日记 Lite (Diary Lite)
+# Lite Diary
 
 一款简洁的 Flutter 日记应用，支持 Markdown 编辑、分组管理、标签系统、农历日历、那年今日回顾、搜索、诗稿导出等功能。
 

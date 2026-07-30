@@ -1,4 +1,4 @@
-import 'package:diary_lite/database/database.dart';
+import 'package:lite_diary/database/database.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'database_provider.g.dart';

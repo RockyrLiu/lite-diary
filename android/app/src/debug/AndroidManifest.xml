@@ -6,6 +6,6 @@
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="Diary Lite Debug"
+        android:label="Lite Diary Debug"
         tools:replace="android:label"/>
 </manifest>

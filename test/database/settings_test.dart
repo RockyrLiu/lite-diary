@@ -1,4 +1,4 @@
-import 'package:diary_lite/database/database.dart';
+import 'package:lite_diary/database/database.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

@@ -1,6 +1,6 @@
 {
-    "name": "diary_lite",
-    "short_name": "diary_lite",
+    "name": "lite_diary",
+    "short_name": "lite_diary",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

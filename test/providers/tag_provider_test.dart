@@ -1,6 +1,6 @@
-import 'package:diary_lite/database/database.dart';
-import 'package:diary_lite/providers/database_provider.dart';
-import 'package:diary_lite/providers/tag_provider.dart';
+import 'package:lite_diary/database/database.dart';
+import 'package:lite_diary/providers/database_provider.dart';
+import 'package:lite_diary/providers/tag_provider.dart';
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:riverpod/riverpod.dart';

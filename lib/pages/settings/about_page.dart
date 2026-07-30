@@ -15,11 +15,11 @@ class AboutPage extends StatelessWidget {
           ),
           SizedBox(height: 16),
           Center(
-            child: Text('Diary Lite', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            child: Text('Lite Diary', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
           ),
           SizedBox(height: 8),
           Center(
-            child: Text('v0.1.3', style: TextStyle(fontSize: 14, color: Colors.grey)),
+            child: Text('v0.1.8', style: TextStyle(fontSize: 14, color: Colors.grey)),
           ),
           SizedBox(height: 24),
           Text(
@@ -32,7 +32,7 @@ class AboutPage extends StatelessWidget {
           _InfoItem(label: '运行平台', value: 'Android / Linux / Windows / Web'),
           SizedBox(height: 24),
           Center(
-            child: Text('© 2026 diary_lite', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            child: Text('© 2026 lite_diary', style: TextStyle(fontSize: 12, color: Colors.grey)),
           ),
         ],
       ),

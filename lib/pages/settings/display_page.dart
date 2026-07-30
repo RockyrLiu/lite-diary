@@ -9,13 +9,13 @@ import '../../widgets/section_header.dart';
 import '../../widgets/color_scheme_box.dart';
 
 
-final homePageOrderProvider = StateProvider<List<int>>((ref) => const [0, 1, 2]);
+final homePageOrderProvider = StateProvider<List<int>>((ref) => const [1, 2, 0]);
 
 Future<List<int>> loadHomePageOrder() async {
   final prefs = await SharedPreferences.getInstance();
   final order = prefs.getStringList('home_page_order');
   if (order != null && order.length == 3) return order.map(int.parse).toList();
-  return const [0, 1, 2];
+  return const [1, 2, 0];
 }
 
 Future<void> saveHomePageOrder(List<int> order) async {
@@ -32,7 +32,7 @@ class DisplayPage extends ConsumerStatefulWidget {
 
 class _DisplayPageState extends ConsumerState<DisplayPage> {
   Map<String, bool> _tabs = {};
-  List<int> _pageOrder = [0, 1, 2];
+  List<int> _pageOrder = [1, 2, 0];
   bool _loaded = false;
 
   static const _pageNames = ['那年今日', '日历', '分组'];
@@ -51,7 +51,7 @@ class _DisplayPageState extends ConsumerState<DisplayPage> {
         '设置': prefs.getBool('tab_settings') ?? true,
       };
       final order = prefs.getStringList('home_page_order');
-      _pageOrder = order != null && order.length == 3 ? order.map(int.parse).toList() : [0, 1, 2];
+      _pageOrder = order != null && order.length == 3 ? order.map(int.parse).toList() : [1, 2, 0];
       _loaded = true;
     });
   }

@@ -1,6 +1,6 @@
 import 'dart:collection';
 
-import 'package:diary_lite/providers/entry_provider.dart';
+import 'package:lite_diary/providers/entry_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'calendar_data_provider.g.dart';

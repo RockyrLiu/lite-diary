@@ -26,7 +26,7 @@ class HomePage extends ConsumerStatefulWidget {
 class _HomePageState extends ConsumerState<HomePage> {
   late PageController _pageController;
   static const _kPageMultiplier = 1000;
-  List<int> _lastOrder = [0, 1, 2];
+  List<int> _lastOrder = [1, 2, 0];
 
   final _pages = const [OnThisDayPage(), _CalendarViewPage(), GroupsPage()];
 
@@ -62,7 +62,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     final orderedPages = pageOrder.map((idx) => _pages[idx]).toList();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Diary Lite'), actions: const [SearchWidget()]),
+      appBar: AppBar(title: const Text('Lite Diary'), actions: const [SearchWidget()]),
       body: PageView.builder(
         controller: _pageController,
         itemBuilder: (context, index) => orderedPages[index % orderedPages.length],

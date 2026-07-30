@@ -21,18 +21,18 @@ void main() async {
       renderingSettingsProvider.overrideWith((ref) => renderSettings),
       homePageOrderProvider.overrideWith((ref) => pageOrder),
     ],
-    child: const DiaryLiteApp(),
+    child: const LiteDiaryApp(),
   ));
 }
 
-class DiaryLiteApp extends ConsumerStatefulWidget {
-  const DiaryLiteApp({super.key});
+class LiteDiaryApp extends ConsumerStatefulWidget {
+  const LiteDiaryApp({super.key});
 
   @override
-  ConsumerState<DiaryLiteApp> createState() => _DiaryLiteAppState();
+  ConsumerState<LiteDiaryApp> createState() => _LiteDiaryAppState();
 }
 
-class _DiaryLiteAppState extends ConsumerState<DiaryLiteApp> {
+class _LiteDiaryAppState extends ConsumerState<LiteDiaryApp> {
   @override
   void initState() {
     super.initState();
@@ -58,7 +58,7 @@ class _DiaryLiteAppState extends ConsumerState<DiaryLiteApp> {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
-      title: 'Diary Lite',
+      title: 'Lite Diary',
       theme: AppTheme.lightTheme(seed),
       darkTheme: AppTheme.darkTheme(seed),
       themeMode: themeMode,
