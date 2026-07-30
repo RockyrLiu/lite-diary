@@ -24,7 +24,6 @@ class _EncryptionSettingsPageState extends ConsumerState<EncryptionSettingsPage>
   bool _keyVisible = false;
   bool _showRecovery = false;
   String? _headerSalt;
-  String? _headerIv;
   String? _restoredKeyHex;
   String? _headerError;
 
@@ -82,7 +81,6 @@ class _EncryptionSettingsPageState extends ConsumerState<EncryptionSettingsPage>
     if (trimmed.isEmpty) {
       setState(() {
         _headerSalt = null;
-        _headerIv = null;
         _restoredKeyHex = null;
         _headerError = null;
       });
@@ -96,10 +94,8 @@ class _EncryptionSettingsPageState extends ConsumerState<EncryptionSettingsPage>
         return;
       }
       _headerSalt = salt;
-      _headerIv = json['iv'] as String?;
     } catch (_) {
       _headerSalt = trimmed;
-      _headerIv = null;
     }
     _headerError = null;
     _deriveFromHeader();
@@ -213,6 +209,8 @@ class _EncryptionSettingsPageState extends ConsumerState<EncryptionSettingsPage>
                       ),
                     ]),
                     const SizedBox(height: 8),
+                    const Text('手动解密命令', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.green)),
+                    const SizedBox(height: 4),
                     Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Expanded(
                         child: Container(
@@ -221,7 +219,7 @@ class _EncryptionSettingsPageState extends ConsumerState<EncryptionSettingsPage>
                           child: Text(
                             'uv run --with cryptography python3 -c \'from cryptography.hazmat.primitives.ciphers.aead import AESGCM\n'
                             'd=open("backup.zip.enc","rb").read()\n'
-                            'open("backup.zip","wb").write(AESGCM(bytes.fromhex("$_keyHex")).decrypt(bytes.fromhex("${_headerIv ?? '<iv>'}"),d[16:],None))\'',
+                            'open("backup.zip","wb").write(AESGCM(bytes.fromhex("$_keyHex")).decrypt(d[:16],d[16:],None))\'',
                             style: const TextStyle(fontSize: 11, fontFamily: 'monospace', color: Colors.greenAccent),
                           ),
                         ),
@@ -233,14 +231,11 @@ class _EncryptionSettingsPageState extends ConsumerState<EncryptionSettingsPage>
                         onPressed: () {
                           Clipboard.setData(ClipboardData(text: "uv run --with cryptography python3 -c 'from cryptography.hazmat.primitives.ciphers.aead import AESGCM\n"
                               "d=open(\"backup.zip.enc\",\"rb\").read()\n"
-                              "open(\"backup.zip\",\"wb\").write(AESGCM(bytes.fromhex(\"$_keyHex\")).decrypt(bytes.fromhex(\"${_headerIv ?? '<iv>'}\"),d[16:],None))'"));
+                              "open(\"backup.zip\",\"wb\").write(AESGCM(bytes.fromhex(\"$_keyHex\")).decrypt(d[:16],d[16:],None))'"));
                           _toast('命令已复制');
                         },
                       ),
                     ]),
-                    const SizedBox(height: 4),
-                    Text(_headerIv != null ? ' IV 已从 _header.json 自动填充' : ' <iv> 见 _header.json 中的 iv 字段',
-                        style: TextStyle(fontSize: 13, color: Colors.green.shade600)),
                   ],
                 ]),
               ),
@@ -292,34 +287,6 @@ class _EncryptionSettingsPageState extends ConsumerState<EncryptionSettingsPage>
                     const Text('恢复的密钥', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.blue)),
                     const SizedBox(height: 8),
                     SelectableText(_restoredKeyHex!, style: TextStyle(fontSize: 14, fontFamily: 'monospace', color: Colors.blue.shade800)),
-                    if (_headerIv != null) ...[
-                      const SizedBox(height: 12),
-                      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(4)),
-                            child: Text(
-                              'uv run --with cryptography python3 -c \'from cryptography.hazmat.primitives.ciphers.aead import AESGCM\n'
-                              'd=open("backup.zip.enc","rb").read()\n'
-                              'open("backup.zip","wb").write(AESGCM(bytes.fromhex("$_restoredKeyHex")).decrypt(bytes.fromhex("$_headerIv"),d[16:],None))\'',
-                              style: const TextStyle(fontSize: 11, fontFamily: 'monospace', color: Colors.lightBlueAccent),
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          padding: const EdgeInsets.only(top: 24),
-                          icon: const Icon(Icons.copy, size: 16),
-                          tooltip: '复制命令',
-                          onPressed: () {
-                            Clipboard.setData(ClipboardData(text: "uv run --with cryptography python3 -c 'from cryptography.hazmat.primitives.ciphers.aead import AESGCM\n"
-                                "d=open(\"backup.zip.enc\",\"rb\").read()\n"
-                                "open(\"backup.zip\",\"wb\").write(AESGCM(bytes.fromhex(\"$_restoredKeyHex\")).decrypt(bytes.fromhex(\"$_headerIv\"),d[16:],None))'"));
-                            _toast('命令已复制');
-                          },
-                        ),
-                      ]),
-                    ],
                     const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,

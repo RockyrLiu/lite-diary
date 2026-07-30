@@ -144,9 +144,7 @@ class CloudBackupService {
       await File(encPath).writeAsBytes(encrypted);
       uploadPath = encPath;
       uploadName = 'backup.zip.enc';
-      final ivHex = CryptoService.keyToHex(CryptoService.extractIv(encrypted));
       headerData['salt'] = salt;
-      headerData['iv'] = ivHex;
     }
 
     onProgress?.call('正在上传...');

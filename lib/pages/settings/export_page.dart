@@ -467,13 +467,11 @@ class _ExportPageState extends ConsumerState<ExportPage> {
         final zipBytes = await File(zipPath).readAsBytes();
         final encrypted = CryptoService.encrypt(Uint8List.fromList(zipBytes), key);
 
-        final ivHex = CryptoService.keyToHex(CryptoService.extractIv(encrypted));
         final manifestHash = await _hashManifestFromZip(zipPath);
         final header = {
           'encrypted': true,
           'hash': manifestHash,
           'salt': cfg.salt,
-          'iv': ivHex,
         };
 
         final dir = Directory(zipPath).parent.path;
