@@ -76,11 +76,17 @@ GoRouter _buildRouter({
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) => Scaffold(
           body: navigationShell,
-          bottomNavigationBar: BottomNavigationBar(
-            currentIndex: navigationShell.currentIndex,
-            onTap: (index) => navigationShell.goBranch(index),
-            type: BottomNavigationBarType.fixed,
-            items: navItems,
+          bottomNavigationBar: Theme(
+            data: Theme.of(context).copyWith(
+              splashFactory: NoSplash.splashFactory,
+              highlightColor: Colors.transparent,
+            ),
+            child: BottomNavigationBar(
+              currentIndex: navigationShell.currentIndex,
+              onTap: (index) => navigationShell.goBranch(index),
+              type: BottomNavigationBarType.fixed,
+              items: navItems,
+            ),
           ),
         ),
         branches: branches,
