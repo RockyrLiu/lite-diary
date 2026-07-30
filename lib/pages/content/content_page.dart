@@ -46,17 +46,9 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   String _weather = '';
   String _location = '';
   final List<String> _pendingTags = [];
-  bool _suppressSync = false;
+  bool _isSaving = false;
 
   AppDatabase get db => ref.read(databaseProvider);
-
-  bool _listEquals(List<Entry> a, List<Entry> b) {
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      if (a[i].id != b[i].id) return false;
-    }
-    return true;
-  }
 
   String? _extractTitle(String content) {
     final firstLine = content.split('\n').first.trim();
@@ -142,8 +134,8 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   }
 
   Future<void> _saveNow() async {
-    if (!_hasUnsavedChanges) return;
-    _suppressSync = true;
+    if (!_hasUnsavedChanges || _isSaving) return;
+    _isSaving = true;
     final content = _contentController.text.trim();
     if (content.isEmpty) {
       if (_editingEntryId != null) {
@@ -161,7 +153,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
         }
       }
       _hasUnsavedChanges = false;
-      _suppressSync = false;
+      _isSaving = false;
       ref.invalidate(entriesByDateProvider(_currentDate));
       ref.invalidate(allEntriesProvider);
       ref.invalidate(calendarDateCountsProvider);
@@ -203,7 +195,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
     }
     _hasUnsavedChanges = false;
     _modifiedTime = _timeStr(now);
-    _suppressSync = false;
+    _isSaving = false;
     ref.invalidate(entriesByDateProvider(_currentDate));
     ref.invalidate(allEntriesProvider);
     ref.invalidate(calendarDateCountsProvider);
@@ -273,8 +265,8 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   Future<void> _goToNextEntry() async { await _saveNow(); if (_currentEntryIndex < _currentEntries.length - 1) { setState(() { _currentEntryIndex++; _loadCurrentEntry(); }); } }
   Future<void> _goToPreviousEntry() async { await _saveNow(); if (_currentEntryIndex > 0) { setState(() { _currentEntryIndex--; _loadCurrentEntry(); }); } }
 
-  void _startNewEntry() {
-    _saveNow();
+  Future<void> _startNewEntry() async {
+    await _saveNow();
     setState(() { _contentController.clear(); _editingEntryId = null; _currentGroupId = _diaryGroupId; _hasUnsavedChanges = false; });
     _pendingTags.clear();
     _weather = '';
@@ -518,36 +510,46 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   Widget _buildPendingTags() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: Wrap(
-        spacing: 6,
-        runSpacing: 4,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          ..._pendingTags.map((tag) => Chip(
-                label: Text(tag, style: const TextStyle(fontSize: 12)),
-                deleteIcon: const Icon(Icons.close, size: 16),
-                onDeleted: () => setState(() => _pendingTags.remove(tag)),
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
-              )),
-          ActionChip(
-            label: const Icon(Icons.add, size: 16),
-            onPressed: _addPendingTag,
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
+          if (_pendingTags.isNotEmpty)
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: _pendingTags
+                  .map((tag) => Chip(
+                        label: Text(tag, style: const TextStyle(fontSize: 12)),
+                        deleteIcon: const Icon(Icons.close, size: 16),
+                        onDeleted: () =>
+                            setState(() => _pendingTags.remove(tag)),
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                      ))
+                  .toList(),
+            ),
+          SizedBox(
+            height: 36,
+            child: TextField(
+              decoration: const InputDecoration(
+                hintText: '输入标签名，回车添加',
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(vertical: 8),
+                isDense: true,
+              ),
+              style: const TextStyle(fontSize: 13),
+              onSubmitted: (value) {
+                final name = value.trim();
+                if (name.isNotEmpty && !_pendingTags.contains(name)) {
+                  setState(() => _pendingTags.add(name));
+                }
+              },
+            ),
           ),
         ],
       ),
     );
-  }
-
-  Future<void> _addPendingTag() async {
-    final name = await showDialog<String>(
-      context: context,
-      builder: (ctx) => _TagInputDialog(),
-    );
-    if (name != null && name.trim().isNotEmpty && !_pendingTags.contains(name.trim())) {
-      setState(() => _pendingTags.add(name.trim()));
-    }
   }
 
   bool _isToday(DateTime d) {
@@ -635,19 +637,17 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   Widget build(BuildContext context) {
     final dateStr = '${_currentDate.year}年${_currentDate.month}月${_currentDate.day}日';
     final renderSettings = ref.watch(renderingSettingsProvider);
-    final externalEntries = ref.watch(entriesByDateProvider(_currentDate));
-
-    externalEntries.whenOrNull(data: (entries) {
-      if (!_suppressSync && !_hasUnsavedChanges &&
-          (entries.length != _currentEntries.length ||
-              (_currentEntries.isNotEmpty && !_listEquals(entries, _currentEntries)))) {
+    ref.watch(entriesByDateProvider(_currentDate)).whenOrNull(data: (entries) {
+      if (!_hasUnsavedChanges && !_isSaving &&
+          entries.length != _currentEntries.length) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             setState(() {
               _currentEntries = entries;
-              _currentEntryIndex = 0;
+              if (_currentEntryIndex >= entries.length) {
+                _currentEntryIndex = entries.isEmpty ? 0 : entries.length - 1;
+              }
             });
-            _loadCurrentEntry();
           }
         });
       }
@@ -726,41 +726,6 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
         backgroundColor: Color.lerp(Theme.of(context).colorScheme.primary, Colors.white, 0.6)!,
         child: const Icon(Icons.add),
       ),
-    );
-  }
-}
-
-class _TagInputDialog extends StatefulWidget {
-  @override
-  State<_TagInputDialog> createState() => _TagInputDialogState();
-}
-
-class _TagInputDialogState extends State<_TagInputDialog> {
-  late final ctrl = TextEditingController();
-  final _focusNode = FocusNode();
-
-  @override
-  void dispose() {
-    ctrl.dispose();
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('添加标签'),
-      content: TextField(
-        controller: ctrl,
-        focusNode: _focusNode,
-        decoration: const InputDecoration(hintText: '标签名称'),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
-        TextButton(
-            onPressed: () => Navigator.pop(context, ctrl.text),
-            child: const Text('确定')),
-      ],
     );
   }
 }
