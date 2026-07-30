@@ -304,10 +304,12 @@ class _ExportPageState extends ConsumerState<ExportPage> {
 
     final zipPath = await _buildZip(fileName, buffer, imageRecords);
     if (mounted) {
-      await SharePlus.instance.share(ShareParams(
+      final result = await SharePlus.instance.share(ShareParams(
         files: [XFile(zipPath)], subject: fileName, text: fileName,
       ));
-      _showSnackBar('诗稿已生成');
+      if (result.status == ShareResultStatus.success) {
+        _showSnackBar('诗稿已生成');
+      }
     }
   }
 
@@ -391,10 +393,12 @@ class _ExportPageState extends ConsumerState<ExportPage> {
 
     final zipPath = await _buildZip(fileName, buffer, imageRecords);
     if (mounted) {
-      await SharePlus.instance.share(ShareParams(
+      final result = await SharePlus.instance.share(ShareParams(
         files: [XFile(zipPath)], subject: fileName, text: fileName,
       ));
-      _showSnackBar('已导出 ${entries.length} 篇日记');
+      if (result.status == ShareResultStatus.success) {
+        _showSnackBar('已导出 ${entries.length} 篇日记');
+      }
     }
   }
 

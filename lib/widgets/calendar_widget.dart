@@ -29,6 +29,11 @@ class _MonthCalendarWidgetState extends State<MonthCalendarWidget> {
     _currentMonth = DateTime(widget.initialMonth.year, widget.initialMonth.month, 1);
   }
 
+  void _jumpToToday() {
+    final now = DateTime.now();
+    setState(() { _currentMonth = DateTime(now.year, now.month, 1); });
+  }
+
   void _previousMonth() => setState(() { _currentMonth = DateTime(_currentMonth.year, _currentMonth.month - 1, 1); });
   void _nextMonth() => setState(() { _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 1); });
 
@@ -90,13 +95,19 @@ class _MonthCalendarWidgetState extends State<MonthCalendarWidget> {
   }
 
   Widget _buildHeader() {
+    final now = DateTime.now();
+    final isCurrentMonth = _currentMonth.year == now.year && _currentMonth.month == now.month;
     return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
       IconButton(icon: const Icon(Icons.chevron_left), onPressed: _previousMonth),
       GestureDetector(
         onTap: _pickYear,
         child: Text('${_currentMonth.year} 年 ${_currentMonth.month} 月', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
       ),
-      IconButton(icon: const Icon(Icons.chevron_right), onPressed: _nextMonth),
+      Row(mainAxisSize: MainAxisSize.min, children: [
+        if (!isCurrentMonth)
+          IconButton(icon: const Icon(Icons.today, size: 22), tooltip: '回到今日', onPressed: _jumpToToday),
+        IconButton(icon: const Icon(Icons.chevron_right), onPressed: _nextMonth),
+      ]),
     ]);
   }
 
