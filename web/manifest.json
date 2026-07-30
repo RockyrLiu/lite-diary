@@ -1,11 +1,11 @@
 {
-    "name": "lite_diary",
-    "short_name": "lite_diary",
+    "name": "Lite Diary",
+    "short_name": "Lite Diary",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FFFFFF",
+    "theme_color": "#FFFFFF",
+    "description": "简洁轻量的日记应用",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
