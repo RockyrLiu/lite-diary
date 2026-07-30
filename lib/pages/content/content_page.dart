@@ -152,7 +152,8 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
       ref.invalidate(calendarDateCountsProvider);
       return;
     }
-    final title = _extractTitle(content);
+    final title = _extractTitle(content) ??
+        '${_currentDate.year}年${_currentDate.month}月${_currentDate.day}日';
     final now = DateTime.now();
     if (_editingEntryId != null) {
       final hash = _computeHash(_currentDate, content);

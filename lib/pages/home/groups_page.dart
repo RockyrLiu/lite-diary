@@ -4,6 +4,7 @@ import 'package:drift/drift.dart' hide isNull, isNotNull, Column;
 import 'package:go_router/go_router.dart';
 
 import '../../database/database.dart';
+import '../../providers/calendar_data_provider.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/entry_provider.dart';
 import '../../providers/group_provider.dart';
@@ -76,6 +77,27 @@ class _GroupsPageState extends ConsumerState<GroupsPage> {
     }
   }
 
+  Future<void> _deleteEntry(Entry entry) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删除日记'),
+        content: Text('确定删除"${entry.title ?? '无标题'}"？'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('删除')),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      await ref.read(databaseProvider).deleteEntry(entry.id);
+      if (!mounted) return;
+      ref.invalidate(entriesByGroupProvider(entry.groupId));
+      ref.invalidate(allEntriesProvider);
+      ref.invalidate(calendarDateCountsProvider);
+    }
+  }
+
   String _formatDate(DateTime d) => '${d.month}.${d.day}';
 
   @override
@@ -138,6 +160,7 @@ class _GroupsPageState extends ConsumerState<GroupsPage> {
                       date: _formatDate(e.date),
                       content: e.content,
                       onTap: () => context.go('/entry/${e.id}'),
+                      onLongPress: () => _deleteEntry(e),
                     );
                   },
                 );
@@ -172,12 +195,14 @@ class _EntryCard extends StatelessWidget {
   final String date;
   final String content;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   const _EntryCard({
     required this.title,
     required this.date,
     required this.content,
     required this.onTap,
+    this.onLongPress,
   });
 
   @override
@@ -188,6 +213,7 @@ class _EntryCard extends StatelessWidget {
         title: Text(title, maxLines: 1, style: const TextStyle(fontWeight: FontWeight.w500)),
         subtitle: Text('$date  $content', maxLines: 2, style: const TextStyle(fontSize: 12)),
         onTap: onTap,
+        onLongPress: onLongPress,
       ),
     );
   }

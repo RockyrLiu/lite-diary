@@ -79,7 +79,10 @@ class _ImportPageState extends ConsumerState<ImportPage> {
         }
 
         final groupId = await _resolveGroup(entryData['group'] ?? '日记');
-        final title = entryData['title'];
+        final dateStr = '${date.year}年${date.month}月${date.day}日';
+        final title = (entryData['title'] != null && entryData['title']!.isNotEmpty)
+            ? entryData['title']
+            : dateStr;
         final body = entryData['content'] ?? '';
         final weather = entryData['weather'];
         final location = entryData['location'];
