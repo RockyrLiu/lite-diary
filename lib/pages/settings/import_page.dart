@@ -293,7 +293,7 @@ class _ImportPageState extends ConsumerState<ImportPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('导入数据')),
+      appBar: AppBar(title: const Text('导入')),
       body: Center(
         child: _importing
             ? const Column(mainAxisSize: MainAxisSize.min, children: [

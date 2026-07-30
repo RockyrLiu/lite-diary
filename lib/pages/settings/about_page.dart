@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-const appVersion = '0.1.9';
+const appVersion = '0.2.0';
 
 class AboutPage extends StatelessWidget {
   const AboutPage({super.key});

@@ -33,9 +33,10 @@ void main() {
       await db.createGroup(GroupsCompanion(name: const Value('A'), sortOrder: const Value(1)));
 
       final groups = await db.getAllGroups();
-      expect(groups.length, 2);
-      expect(groups[0].name, 'A');
-      expect(groups[1].name, 'B');
+      final customGroups = groups.where((g) => g.name == 'A' || g.name == 'B').toList();
+      expect(customGroups.length, 2);
+      expect(customGroups[0].name, 'A');
+      expect(customGroups[1].name, 'B');
     });
 
     test('updateGroup 可改名和排序', () async {

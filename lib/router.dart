@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'pages/home/home_page.dart';
 import 'pages/content/content_page.dart';
 import 'pages/llm/llm_page.dart';
+import 'pages/llm/llm_settings_page.dart';
 import 'pages/settings/settings_page.dart';
 import 'pages/settings/export_page.dart';
 import 'pages/settings/import_page.dart';
@@ -59,7 +60,7 @@ GoRouter _buildRouter({
     branches.add(StatefulShellBranch(routes: [
       GoRoute(path: '/settings', builder: (context, state) => const SettingsPage(), routes: [
         GoRoute(path: 'display', builder: (context, state) => const DisplayPage()),
-        GoRoute(path: 'llm', builder: (context, state) => const SettingsPage()),
+        GoRoute(path: 'llm', builder: (context, state) => const LlmSettingsPage()),
         GoRoute(path: 'about', builder: (context, state) => const AboutPage()),
         GoRoute(path: 'export', builder: (context, state) => const ExportPage()),
         GoRoute(path: 'import', builder: (context, state) => const ImportPage()),

@@ -29,9 +29,10 @@ void main() {
       await db.createGroup(GroupsCompanion(name: const Value('A')));
 
       final groups = await container.read(allGroupsProvider.future);
-      expect(groups.length, 2);
-      expect(groups.first.name, 'A');
-      expect(groups.last.name, 'B');
+      final customGroups = groups.where((g) => g.name == 'A' || g.name == 'B').toList();
+      expect(customGroups.length, 2);
+      expect(customGroups.first.name, 'A');
+      expect(customGroups.last.name, 'B');
     });
 
   });

@@ -8,14 +8,14 @@ import 'tables.dart';
 
 part 'database.g.dart';
 
-@DriftDatabase(tables: [Entries, Groups, Tags, EntryTags, Images, Settings])
+@DriftDatabase(tables: [Entries, Groups, Tags, EntryTags, Images, Settings, Conversations, Messages, AnalysisPrompts])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   AppDatabase.forTesting() : super(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 5;
 
   // ========== Entry ==========
 
@@ -164,6 +164,135 @@ class AppDatabase extends _$AppDatabase {
     await into(groups).insert(
       GroupsCompanion(name: const Value('诗词'), sortOrder: const Value(1)),
       mode: InsertMode.insertOrIgnore,
+    );
+  }
+
+  // ========== Conversation ==========
+
+  Future<int> createConversation(ConversationsCompanion conversation) {
+    return into(conversations).insert(conversation);
+  }
+
+  Future<List<Conversation>> getAllConversations() {
+    return (select(conversations)
+      ..orderBy([(c) => OrderingTerm(expression: c.updatedAt, mode: OrderingMode.desc)]))
+        .get();
+  }
+
+  Future<Conversation?> getConversationById(int id) {
+    return (select(conversations)..where((c) => c.id.equals(id))).getSingleOrNull();
+  }
+
+  Future<bool> updateConversation(int id, ConversationsCompanion conversation) {
+    return (update(conversations)..where((c) => c.id.equals(id))).write(conversation).then((count) => count > 0);
+  }
+
+  Future<bool> deleteConversation(int id) {
+    return (delete(conversations)..where((c) => c.id.equals(id))).go().then((count) => count > 0);
+  }
+
+  // ========== Message ==========
+
+  Future<int> createMessage(MessagesCompanion message) {
+    return into(messages).insert(message);
+  }
+
+  Future<List<Message>> getMessagesByConversation(int conversationId) {
+    return (select(messages)
+      ..where((m) => m.conversationId.equals(conversationId))
+      ..orderBy([(m) => OrderingTerm(expression: m.createdAt, mode: OrderingMode.asc)]))
+        .get();
+  }
+
+  Future<Message?> getLastMessageByConversation(int conversationId) {
+    return (select(messages)
+      ..where((m) => m.conversationId.equals(conversationId))
+      ..orderBy([(m) => OrderingTerm(expression: m.createdAt, mode: OrderingMode.desc)])
+      ..limit(1))
+        .getSingleOrNull();
+  }
+
+  Future<bool> deleteMessagesByConversation(int conversationId) {
+    return (delete(messages)..where((m) => m.conversationId.equals(conversationId))).go().then((count) => count > 0);
+  }
+
+  Future<bool> deleteMessage(int id) {
+    return (delete(messages)..where((m) => m.id.equals(id))).go().then((count) => count > 0);
+  }
+
+  Future<bool> updateMessage(int id, MessagesCompanion message) {
+    return (update(messages)..where((m) => m.id.equals(id))).write(message).then((count) => count > 0);
+  }
+
+  // ========== AnalysisPrompt ==========
+
+  Future<int> createAnalysisPrompt(AnalysisPromptsCompanion prompt) {
+    return into(analysisPrompts).insert(prompt);
+  }
+
+  Future<List<AnalysisPrompt>> getAllAnalysisPrompts() {
+    return (select(analysisPrompts)
+      ..orderBy([(p) => OrderingTerm(expression: p.sortOrder, mode: OrderingMode.asc)]))
+        .get();
+  }
+
+  Future<AnalysisPrompt?> getAnalysisPromptById(int id) {
+    return (select(analysisPrompts)..where((p) => p.id.equals(id))).getSingleOrNull();
+  }
+
+  Future<bool> updateAnalysisPrompt(int id, AnalysisPromptsCompanion prompt) {
+    return (update(analysisPrompts)..where((p) => p.id.equals(id))).write(prompt).then((count) => count > 0);
+  }
+
+  Future<bool> deleteAnalysisPrompt(int id) {
+    return (delete(analysisPrompts)..where((p) => p.id.equals(id))).go().then((count) => count > 0);
+  }
+
+  Future<void> insertDefaultAnalysisPrompts() async {
+    final defaults = <Map<String, String>>[
+      {'name': '情绪分析', 'template': '请根据以下日记内容，分析作者的情绪变化和趋势，给出详细分析。\n\n{entries}'},
+      {'name': '今日摘要', 'template': '请对以下今天的日记内容进行总结，提炼关键要点。\n\n{entries}'},
+      {'name': '每周回顾', 'template': '请根据以下本周日记，生成周度回顾（主要事件、情绪变化、收获与反思）。\n\n{entries}'},
+      {'name': '写作建议', 'template': '请阅读以下日记内容，给出写作改进建议（表达方式、结构等）。\n\n{entries}'},
+    ];
+    for (var i = 0; i < defaults.length; i++) {
+      final item = defaults[i];
+      await into(analysisPrompts).insert(
+        AnalysisPromptsCompanion(
+          name: Value(item['name']!),
+          promptTemplate: Value(item['template']!),
+          sortOrder: Value(i),
+        ),
+        mode: InsertMode.insertOrIgnore,
+      );
+    }
+  }
+
+  // ========== Migration ==========
+
+  @override
+  MigrationStrategy get migration {
+    return MigrationStrategy(
+      onCreate: (m) async {
+        await m.createAll();
+        await insertDefaultGroups();
+        await insertDefaultAnalysisPrompts();
+      },
+      onUpgrade: (m, from, to) async {
+        if (from < 3) {
+          await m.createTable(conversations);
+          await m.createTable(messages);
+          await m.createTable(analysisPrompts);
+          await insertDefaultAnalysisPrompts();
+        }
+        if (from < 4) {
+          await customStatement('DELETE FROM analysis_prompts');
+          await insertDefaultAnalysisPrompts();
+        }
+        if (from < 5) {
+          await m.addColumn(analysisPrompts, analysisPrompts.isVisible);
+        }
+      },
     );
   }
 }

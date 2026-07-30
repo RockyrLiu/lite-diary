@@ -1,0 +1,11 @@
+targets:
+  $default:
+    builders:
+      riverpod_generator:
+        generate_for:
+          include:
+            - lib/providers/**.dart
+      drift_dev:
+        generate_for:
+          include:
+            - lib/database/**.dart

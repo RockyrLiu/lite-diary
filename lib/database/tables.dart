@@ -46,3 +46,30 @@ class Settings extends Table {
   @override
   Set<Column> get primaryKey => {key};
 }
+
+class Conversations extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get title => text().withDefault(const Constant('新对话'))();
+  DateTimeColumn get dateStart => dateTime().nullable()();
+  DateTimeColumn get dateEnd => dateTime().nullable()();
+  TextColumn get groupIds => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+}
+
+class Messages extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get conversationId => integer().references(Conversations, #id, onDelete: KeyAction.cascade)();
+  TextColumn get role => text()();
+  TextColumn get content => text().withDefault(const Constant(''))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+}
+
+class AnalysisPrompts extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text().withLength(min: 1, max: 100).unique()();
+  TextColumn get promptTemplate => text().withDefault(const Constant(''))();
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+  BoolColumn get isVisible => boolean().withDefault(const Constant(true))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+}

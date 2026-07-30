@@ -188,7 +188,7 @@ class _CloudPageState extends ConsumerState<CloudPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('备份与恢复')),
+      appBar: AppBar(title: const Text('云端备份')),
       body: ListView(
         children: [
           _sectionHeader('远程 WebDAV'),
