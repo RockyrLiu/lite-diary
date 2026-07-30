@@ -78,8 +78,7 @@ GoRouter _buildRouter({
           body: navigationShell,
           bottomNavigationBar: Theme(
             data: Theme.of(context).copyWith(
-              splashFactory: NoSplash.splashFactory,
-              highlightColor: Colors.transparent,
+              splashColor: Theme.of(context).colorScheme.primary.withAlpha(20),
             ),
             child: BottomNavigationBar(
               currentIndex: navigationShell.currentIndex,
