@@ -18,7 +18,9 @@ class GroupsPage extends ConsumerStatefulWidget {
 }
 
 class _GroupsPageState extends ConsumerState<GroupsPage> {
-  int? _selectedGroupId; // null = 全部
+  int? _selectedGroupId;
+  bool _multiSelectMode = false;
+  final Set<int> _selectedEntryIds = {};
 
   Future<void> _createGroup() async {
     final controller = TextEditingController();
@@ -78,12 +80,33 @@ class _GroupsPageState extends ConsumerState<GroupsPage> {
     }
   }
 
-  Future<void> _deleteEntry(Entry entry) async {
+  Future<void> _doDeleteEntries(List<Entry> entries) async {
+    for (final entry in entries) {
+      await ref.read(databaseProvider).deleteEntry(entry.id);
+      ref.invalidate(entriesByGroupProvider(entry.groupId));
+      ref.invalidate(entriesByDateProvider(entry.date));
+    }
+    if (!mounted) return;
+    ref.invalidate(allEntriesProvider);
+    ref.invalidate(calendarDateCountsProvider);
+    SharedPreferences.getInstance()
+        .then((p) => p.remove('cloud_sync_hash'));
+    setState(() {
+      _multiSelectMode = false;
+      _selectedEntryIds.clear();
+    });
+  }
+
+  Future<void> _batchDelete() async {
+    if (_selectedEntryIds.isEmpty) return;
+    final allEntries = ref.read(allEntriesProvider).valueOrNull ?? [];
+    final toDelete = allEntries.where((e) => _selectedEntryIds.contains(e.id)).toList();
+    if (toDelete.isEmpty) return;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('删除条目'),
-        content: Text('确定删除"${entry.title ?? '无标题'}"？'),
+        title: const Text('批量删除'),
+        content: Text('确定删除选中的 ${toDelete.length} 篇日记？'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
           TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('删除')),
@@ -91,14 +114,36 @@ class _GroupsPageState extends ConsumerState<GroupsPage> {
       ),
     );
     if (confirm == true) {
-      await ref.read(databaseProvider).deleteEntry(entry.id);
-      if (!mounted) return;
-      ref.invalidate(entriesByGroupProvider(entry.groupId));
-      ref.invalidate(allEntriesProvider);
-      ref.invalidate(calendarDateCountsProvider);
-      SharedPreferences.getInstance()
-          .then((p) => p.remove('cloud_sync_hash'));
+      await _doDeleteEntries(toDelete);
     }
+  }
+
+  void _toggleEntrySelection(Entry entry) {
+    setState(() {
+      if (_selectedEntryIds.contains(entry.id)) {
+        _selectedEntryIds.remove(entry.id);
+        if (_selectedEntryIds.isEmpty) _multiSelectMode = false;
+      } else {
+        _selectedEntryIds.add(entry.id);
+      }
+    });
+  }
+
+  void _selectAll() {
+    final entriesAsync = _selectedGroupId == null
+        ? ref.read(allEntriesProvider)
+        : ref.read(entriesByGroupProvider(_selectedGroupId!));
+    final entries = entriesAsync.valueOrNull ?? [];
+    setState(() {
+      _selectedEntryIds.addAll(entries.map((e) => e.id));
+    });
+  }
+
+  void _startMultiSelect(Entry entry) {
+    setState(() {
+      _multiSelectMode = true;
+      _selectedEntryIds.add(entry.id);
+    });
   }
 
   String _formatDate(DateTime d) => '${d.month}.${d.day}';
@@ -112,9 +157,28 @@ class _GroupsPageState extends ConsumerState<GroupsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('分组'),
+        title: _multiSelectMode
+            ? Text('已选 ${_selectedEntryIds.length} 篇')
+            : const Text('分组'),
         actions: [
-          IconButton(icon: const Icon(Icons.add), onPressed: _createGroup),
+          if (_multiSelectMode) ...[
+            IconButton(
+                icon: const Icon(Icons.select_all),
+                tooltip: '全选',
+                onPressed: _selectAll),
+            IconButton(
+                icon: const Icon(Icons.delete),
+                tooltip: '删除选中',
+                onPressed: _batchDelete),
+            IconButton(
+                icon: const Icon(Icons.close),
+                tooltip: '取消',
+                onPressed: () => setState(() {
+                      _multiSelectMode = false;
+                      _selectedEntryIds.clear();
+                    })),
+          ] else
+            IconButton(icon: const Icon(Icons.add), onPressed: _createGroup),
         ],
       ),
       body: Row(
@@ -158,12 +222,18 @@ class _GroupsPageState extends ConsumerState<GroupsPage> {
                   itemCount: entries.length,
                   itemBuilder: (_, i) {
                     final e = entries[i];
+                    final selected = _selectedEntryIds.contains(e.id);
                     return _EntryCard(
                       title: e.title ?? '无标题',
                       date: _formatDate(e.date),
                       content: e.content,
-                      onTap: () => context.go('/entry/${e.id}'),
-                      onLongPress: () => _deleteEntry(e),
+                      selected: selected,
+                      onTap: _multiSelectMode
+                          ? () => _toggleEntrySelection(e)
+                          : () => context.go('/entry/${e.id}'),
+                      onLongPress: _multiSelectMode
+                          ? null
+                          : () => _startMultiSelect(e),
                     );
                   },
                 );
@@ -199,6 +269,7 @@ class _EntryCard extends StatelessWidget {
   final String content;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
+  final bool selected;
 
   const _EntryCard({
     required this.title,
@@ -206,13 +277,18 @@ class _EntryCard extends StatelessWidget {
     required this.content,
     required this.onTap,
     this.onLongPress,
+    this.selected = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
+      color: selected
+          ? Theme.of(context).colorScheme.primary.withAlpha(25)
+          : null,
       child: ListTile(
+        leading: selected ? const Icon(Icons.check_circle, size: 20) : null,
         title: Text(title, maxLines: 1, style: const TextStyle(fontWeight: FontWeight.w500)),
         subtitle: Text('$date  $content', maxLines: 2, style: const TextStyle(fontSize: 12)),
         onTap: onTap,

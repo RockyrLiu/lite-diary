@@ -45,6 +45,8 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   String? _modifiedTime;
   String _weather = '';
   String _location = '';
+  final List<String> _pendingTags = [];
+  bool _suppressSync = false;
 
   AppDatabase get db => ref.read(databaseProvider);
 
@@ -141,6 +143,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
 
   Future<void> _saveNow() async {
     if (!_hasUnsavedChanges) return;
+    _suppressSync = true;
     final content = _contentController.text.trim();
     if (content.isEmpty) {
       if (_editingEntryId != null) {
@@ -158,6 +161,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
         }
       }
       _hasUnsavedChanges = false;
+      _suppressSync = false;
       ref.invalidate(entriesByDateProvider(_currentDate));
       ref.invalidate(allEntriesProvider);
       ref.invalidate(calendarDateCountsProvider);
@@ -174,6 +178,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
         location: Value(_location.isEmpty ? null : _location),
         hash: Value(hash),
       ));
+      await _attachPendingTags(_editingEntryId!);
     } else {
       final hash = _computeHash(_currentDate, content);
       final newId = await db.createEntry(EntriesCompanion(
@@ -194,9 +199,11 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
           });
         }
       }
+      await _attachPendingTags(newId);
     }
     _hasUnsavedChanges = false;
     _modifiedTime = _timeStr(now);
+    _suppressSync = false;
     ref.invalidate(entriesByDateProvider(_currentDate));
     ref.invalidate(allEntriesProvider);
     ref.invalidate(calendarDateCountsProvider);
@@ -217,6 +224,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
       _editingEntryId = null;
       _currentGroupId = _diaryGroupId;
       _hasUnsavedChanges = false;
+      _pendingTags.clear();
       _modifiedTime = null;
       _weather = '';
       _location = '';
@@ -268,6 +276,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   void _startNewEntry() {
     _saveNow();
     setState(() { _contentController.clear(); _editingEntryId = null; _currentGroupId = _diaryGroupId; _hasUnsavedChanges = false; });
+    _pendingTags.clear();
     _weather = '';
     _location = '';
     _autoLocate();
@@ -488,8 +497,15 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
       ]);
     }
     return Column(children: [
-      if (_editingEntryId != null)
-        TagEditor(key: ValueKey(_editingEntryId), entryId: _editingEntryId!, readOnly: _editorMode != EditorMode.source),
+      if (_editorMode == EditorMode.source) ...[
+        if (_editingEntryId != null)
+          TagEditor(key: ValueKey(_editingEntryId), entryId: _editingEntryId!, readOnly: false)
+        else
+          _buildPendingTags(),
+      ] else ...[
+        if (_editingEntryId != null)
+          TagEditor(key: ValueKey(_editingEntryId), entryId: _editingEntryId!, readOnly: true)
+      ],
       Expanded(child: MarkdownEditor(
         controller: _contentController, externalMode: _editorMode,
         titleSize: renderSettings.titleSize, bodySize: renderSettings.bodySize,
@@ -497,6 +513,41 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
         onInsertImage: _editingEntryId != null ? () async => ImageService().pickAndSaveImage(ref, _editingEntryId!) : null,
       )),
     ]);
+  }
+
+  Widget _buildPendingTags() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 4,
+        children: [
+          ..._pendingTags.map((tag) => Chip(
+                label: Text(tag, style: const TextStyle(fontSize: 12)),
+                deleteIcon: const Icon(Icons.close, size: 16),
+                onDeleted: () => setState(() => _pendingTags.remove(tag)),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+              )),
+          ActionChip(
+            label: const Icon(Icons.add, size: 16),
+            onPressed: _addPendingTag,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _addPendingTag() async {
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => _TagInputDialog(),
+    );
+    if (name != null && name.trim().isNotEmpty && !_pendingTags.contains(name.trim())) {
+      setState(() => _pendingTags.add(name.trim()));
+    }
   }
 
   bool _isToday(DateTime d) {
@@ -565,6 +616,21 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
     }
   }
 
+  Future<void> _attachPendingTags(int entryId) async {
+    if (_pendingTags.isEmpty) return;
+    for (final tagName in _pendingTags) {
+      var tag = await db.getTagByName(tagName);
+      if (tag == null) {
+        final tagId = await db.createTag(TagsCompanion(name: Value(tagName)));
+        tag = await db.getTagById(tagId);
+      }
+      if (tag != null) {
+        await db.attachTag(entryId, tag.id);
+      }
+    }
+    _pendingTags.clear();
+  }
+
   @override
   Widget build(BuildContext context) {
     final dateStr = '${_currentDate.year}年${_currentDate.month}月${_currentDate.day}日';
@@ -572,7 +638,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
     final externalEntries = ref.watch(entriesByDateProvider(_currentDate));
 
     externalEntries.whenOrNull(data: (entries) {
-      if (!_hasUnsavedChanges &&
+      if (!_suppressSync && !_hasUnsavedChanges &&
           (entries.length != _currentEntries.length ||
               (_currentEntries.isNotEmpty && !_listEquals(entries, _currentEntries)))) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -626,6 +692,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
             child: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onHorizontalDragEnd: (details) {
+          if (_editorMode == EditorMode.source) return;
           if (details.primaryVelocity != null) {
             if (details.primaryVelocity! < -50) { _goToNextDate(); } else if (details.primaryVelocity! > 50) { _goToPreviousDate(); }
           }
@@ -659,6 +726,41 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
         backgroundColor: Color.lerp(Theme.of(context).colorScheme.primary, Colors.white, 0.6)!,
         child: const Icon(Icons.add),
       ),
+    );
+  }
+}
+
+class _TagInputDialog extends StatefulWidget {
+  @override
+  State<_TagInputDialog> createState() => _TagInputDialogState();
+}
+
+class _TagInputDialogState extends State<_TagInputDialog> {
+  late final ctrl = TextEditingController();
+  final _focusNode = FocusNode();
+
+  @override
+  void dispose() {
+    ctrl.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('添加标签'),
+      content: TextField(
+        controller: ctrl,
+        focusNode: _focusNode,
+        decoration: const InputDecoration(hintText: '标签名称'),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+        TextButton(
+            onPressed: () => Navigator.pop(context, ctrl.text),
+            child: const Text('确定')),
+      ],
     );
   }
 }
