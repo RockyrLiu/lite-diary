@@ -51,7 +51,7 @@ GoRouter _buildRouter({
   if (showLlm) {
     branches.add(StatefulShellBranch(routes: [
       GoRoute(path: '/llm', builder: (context, state) => const LlmPage()),
-      GoRoute(path: '/llm/:id', builder: (context, state) { final id = state.pathParameters['id']!; return LlmPage(conversationId: id); }),
+      GoRoute(path: '/llm/:id', builder: (context, state) => const LlmPage()),
     ]));
     navItems.add(const BottomNavigationBarItem(icon: Icon(Icons.chat), label: 'LLM'));
   }

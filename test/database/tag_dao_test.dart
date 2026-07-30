@@ -54,22 +54,6 @@ void main() {
       expect(tags[1].name, 'C标签');
     });
 
-    test('updateTag 可重命名', () async {
-      final tagId = await db.createTag(TagsCompanion(name: const Value('旧名')));
-
-      await db.updateTag(tagId, TagsCompanion(name: const Value('新名')));
-
-      final tag = await db.getTagById(tagId);
-      expect(tag!.name, '新名');
-    });
-
-    test('deleteTag 删除后不存在', () async {
-      final tagId = await db.createTag(TagsCompanion(name: const Value('待删除')));
-
-      await db.deleteTag(tagId);
-
-      expect(await db.getTagById(tagId), isNull);
-    });
   });
 
   group('EntryTag', () {
@@ -112,36 +96,5 @@ void main() {
       expect(tags, isEmpty);
     });
 
-    test('getEntriesByTag 可按标签反查条目', () async {
-      final date = DateTime(2026, 7, 29);
-      final entry1 = await createTestEntry('日记1', date, 1);
-      final entry3 = await createTestEntry('日记3', date, 1);
-      final tagId = await db.createTag(TagsCompanion(name: const Value('旅行')));
-
-      await db.attachTag(entry1, tagId);
-      await db.attachTag(entry3, tagId);
-
-      final entries = await db.getEntriesByTag(tagId);
-      expect(entries.length, 2);
-      final titles = entries.map((e) => e.title).toSet();
-      expect(titles, containsAll(['日记1', '日记3']));
-    });
-
-    test('删除标签后关联自动解除（级联删除）', () async {
-      final date = DateTime(2026, 7, 29);
-      final entryId = await createTestEntry('日记', date, 1);
-      final tagId = await db.createTag(TagsCompanion(name: const Value('旅行')));
-
-      await db.attachTag(entryId, tagId);
-
-      // 先确认有关联
-      var tags = await db.getTagsForEntry(entryId);
-      expect(tags.length, 1);
-
-      await db.deleteTag(tagId);
-
-      tags = await db.getTagsForEntry(entryId);
-      expect(tags, isEmpty);
-    });
   });
 }

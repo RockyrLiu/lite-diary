@@ -3,7 +3,7 @@ import 'package:lite_diary/providers/database_provider.dart';
 import 'package:lite_diary/providers/tag_provider.dart';
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:riverpod/riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 ProviderContainer createContainer() {
   final db = AppDatabase.forTesting();

@@ -44,24 +44,6 @@ class AppDatabase extends _$AppDatabase {
         .get();
   }
 
-  Future<Entry?> getNextEntry(DateTime currentDate) {
-    final startOfNextDay = DateTime(currentDate.year, currentDate.month, currentDate.day + 1);
-    return (select(entries)
-      ..where((e) => e.date.isBiggerOrEqualValue(startOfNextDay))
-      ..orderBy([(e) => OrderingTerm(expression: e.date, mode: OrderingMode.asc)])
-      ..limit(1))
-        .getSingleOrNull();
-  }
-
-  Future<Entry?> getPreviousEntry(DateTime currentDate) {
-    final endOfCurrentDay = DateTime(currentDate.year, currentDate.month, currentDate.day);
-    return (select(entries)
-      ..where((e) => e.date.isSmallerThanValue(endOfCurrentDay))
-      ..orderBy([(e) => OrderingTerm(expression: e.date, mode: OrderingMode.desc)])
-      ..limit(1))
-        .getSingleOrNull();
-  }
-
   Future<List<Entry>> getEntriesByGroup(int groupId) {
     return (select(entries)
       ..where((e) => e.groupId.equals(groupId))
@@ -127,14 +109,6 @@ class AppDatabase extends _$AppDatabase {
     return (select(tags)..orderBy([(t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc)])).get();
   }
 
-  Future<bool> updateTag(int id, TagsCompanion tag) {
-    return (update(tags)..where((t) => t.id.equals(id))).write(tag).then((count) => count > 0);
-  }
-
-  Future<bool> deleteTag(int id) {
-    return (delete(tags)..where((t) => t.id.equals(id))).go().then((count) => count > 0);
-  }
-
   // ========== EntryTag ==========
 
   Future<void> attachTag(int entryId, int tagId) {
@@ -153,14 +127,6 @@ class AppDatabase extends _$AppDatabase {
     ])
       ..where(entryTags.entryId.equals(entryId));
     return query.map((row) => row.readTable(tags)).get();
-  }
-
-  Future<List<Entry>> getEntriesByTag(int tagId) {
-    final query = select(entryTags).join([
-      innerJoin(entries, entries.id.equalsExp(entryTags.entryId)),
-    ])
-      ..where(entryTags.tagId.equals(tagId));
-    return query.map((row) => row.readTable(entries)).get();
   }
 
   Future<Map<int, List<String>>> getEntryTagsMap() async {

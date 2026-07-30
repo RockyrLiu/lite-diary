@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 
 class LlmPage extends StatelessWidget {
-  final String? conversationId;
-
-  const LlmPage({super.key, this.conversationId});
+  const LlmPage({super.key});
 
   @override
   Widget build(BuildContext context) {

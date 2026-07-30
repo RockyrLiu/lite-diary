@@ -92,12 +92,4 @@ class DAVService {
     }
   }
 
-  Future<bool> deleteFile(String remoteName) async {
-    try {
-      await _client.remove(_remotePath(remoteName));
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
 }

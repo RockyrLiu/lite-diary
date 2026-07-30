@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+const appVersion = '0.1.9';
+
 class AboutPage extends StatelessWidget {
   const AboutPage({super.key});
 
@@ -19,7 +21,7 @@ class AboutPage extends StatelessWidget {
           ),
           SizedBox(height: 8),
           Center(
-            child: Text('v0.1.8', style: TextStyle(fontSize: 14, color: Colors.grey)),
+            child: Text('v$appVersion', style: TextStyle(fontSize: 14, color: Colors.grey)),
           ),
           SizedBox(height: 24),
           Text(
