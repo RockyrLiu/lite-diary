@@ -20,7 +20,7 @@ class _CloudPageState extends ConsumerState<CloudPage> {
   bool _encrypt = false;
   bool _hasEncryptionKey = false;
 
-  static const _fileName = 'backup.zip';
+  static const _fileName = 'backup.zip / backup.zip.enc';
 
   @override
   void initState() {

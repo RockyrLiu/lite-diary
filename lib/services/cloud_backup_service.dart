@@ -140,10 +140,10 @@ class CloudBackupService {
       onProgress?.call('正在加密...');
       final zipBytes = await File(zipPath).readAsBytes();
       final encrypted = CryptoService.encrypt(Uint8List.fromList(zipBytes), key);
-      final encPath = '${tempDir.path}/backup.enc';
+      final encPath = '${tempDir.path}/backup.zip.enc';
       await File(encPath).writeAsBytes(encrypted);
       uploadPath = encPath;
-      uploadName = 'backup.enc';
+      uploadName = 'backup.zip.enc';
       final ivHex = CryptoService.keyToHex(CryptoService.extractIv(encrypted));
       headerData['salt'] = salt;
       headerData['iv'] = ivHex;
@@ -179,7 +179,7 @@ class CloudBackupService {
     final tempDir = await Directory.systemTemp.createTemp('cloud_restore_');
     String dlName;
     if (encrypted) {
-      dlName = 'backup.enc';
+      dlName = 'backup.zip.enc';
     } else {
       final hasOld = await client.readJson('_metadata.json') != null;
       dlName = hasOld ? 'backup.zip' : 'backup.zip';

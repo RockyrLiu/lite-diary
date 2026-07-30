@@ -459,17 +459,13 @@ class _ExportPageState extends ConsumerState<ExportPage> {
     final baseName = fileName.endsWith('.md') ? fileName.substring(0, fileName.length - 3) : fileName;
     String finalPath = zipPath;
     String finalName = '$baseName.zip';
-    String? headerPath;
+
     if (_encrypt && _hasEncryptionKey) {
       final cfg = await EncryptionConfig.load();
       if (cfg.keyHex.isNotEmpty) {
         final key = CryptoService.hexToKey(cfg.keyHex);
         final zipBytes = await File(zipPath).readAsBytes();
         final encrypted = CryptoService.encrypt(Uint8List.fromList(zipBytes), key);
-        final encPath = '$zipPath.enc';
-        await File(encPath).writeAsBytes(encrypted);
-        finalPath = encPath;
-        finalName = '$baseName.zip.enc';
 
         final ivHex = CryptoService.keyToHex(CryptoService.extractIv(encrypted));
         final manifestHash = await _hashManifestFromZip(zipPath);
@@ -479,8 +475,20 @@ class _ExportPageState extends ConsumerState<ExportPage> {
           'salt': cfg.salt,
           'iv': ivHex,
         };
-        headerPath = '${zipPath}_header.json';
+
+        final dir = Directory(zipPath).parent.path;
+        final encPath = '$dir/$finalName.enc';
+        final headerPath = '$dir/_header.json';
+        await File(encPath).writeAsBytes(encrypted);
         await File(headerPath).writeAsString(jsonEncode(header));
+
+        // wrap both into outer ZIP
+        final outerZipPath = '$dir/$finalName';
+        final encoder = ZipFileEncoder()..create(outerZipPath);
+        await encoder.addFile(File(encPath), '$finalName.enc');
+        await encoder.addFile(File(headerPath), '_header.json');
+        await encoder.close();
+        finalPath = outerZipPath;
       }
     }
 
@@ -503,13 +511,6 @@ class _ExportPageState extends ConsumerState<ExportPage> {
           'sourcePath': finalPath,
           'fileName': finalName,
         });
-        if (headerPath != null) {
-          await const MethodChannel('lite_diary/file_picker')
-              .invokeMethod<bool>('saveFile', {
-            'sourcePath': headerPath,
-            'fileName': '_header.json',
-          });
-        }
         if (saved == true && mounted) {
           _showSnackBar('已保存 $entryCount 篇日记到下载目录');
         } else if (mounted) {
@@ -520,7 +521,7 @@ class _ExportPageState extends ConsumerState<ExportPage> {
       }
     } else {
       final result = await SharePlus.instance.share(ShareParams(
-        files: [XFile(finalPath)], subject: finalName, text: finalName,
+        files: [XFile(finalPath, name: finalName)], subject: finalName, text: finalName,
       ));
       if (result.status == ShareResultStatus.success && mounted) {
         _showSnackBar('已导出 $entryCount 篇日记');

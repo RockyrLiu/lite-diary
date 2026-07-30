@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,15 +16,23 @@ class EncryptionSettingsPage extends ConsumerStatefulWidget {
 
 class _EncryptionSettingsPageState extends ConsumerState<EncryptionSettingsPage> {
   late final TextEditingController _pwdCtrl;
+  late final TextEditingController _headerCtrl;
   String? _keyHex;
+  String? _salt;
   bool _obscure = true;
   bool _loaded = false;
   bool _keyVisible = false;
+  bool _showRecovery = false;
+  String? _headerSalt;
+  String? _headerIv;
+  String? _restoredKeyHex;
+  String? _headerError;
 
   @override
   void initState() {
     super.initState();
     _pwdCtrl = TextEditingController();
+    _headerCtrl = TextEditingController();
     _load();
   }
 
@@ -32,6 +42,7 @@ class _EncryptionSettingsPageState extends ConsumerState<EncryptionSettingsPage>
     setState(() {
       _pwdCtrl.text = cfg.password;
       _keyHex = cfg.keyHex.isEmpty ? null : cfg.keyHex;
+      _salt = cfg.salt.isEmpty ? null : cfg.salt;
       _loaded = true;
     });
   }
@@ -39,12 +50,16 @@ class _EncryptionSettingsPageState extends ConsumerState<EncryptionSettingsPage>
   void _derive() {
     final pwd = _pwdCtrl.text.trim();
     if (pwd.isEmpty) {
-      setState(() => _keyHex = null);
+      setState(() {
+        _keyHex = null;
+        _restoredKeyHex = null;
+      });
       return;
     }
-    final salt = CryptoService.generateSalt();
-    final key = CryptoService.deriveKey(pwd, salt);
+    _salt ??= CryptoService.generateSalt();
+    final key = CryptoService.deriveKey(pwd, _salt!);
     setState(() => _keyHex = CryptoService.keyToHex(key));
+    if (_headerSalt != null) _deriveFromHeader();
   }
 
   Future<void> _save() async {
@@ -55,12 +70,66 @@ class _EncryptionSettingsPageState extends ConsumerState<EncryptionSettingsPage>
       setState(() => _keyHex = null);
       return;
     }
-    // regenerate with same salt
-    final salt = CryptoService.generateSalt();
-    final key = CryptoService.deriveKey(pwd, salt);
+    _salt ??= CryptoService.generateSalt();
+    final key = CryptoService.deriveKey(pwd, _salt!);
     final hex = CryptoService.keyToHex(key);
-    await EncryptionConfig.save(password: pwd, salt: salt, keyHex: hex);
+    await EncryptionConfig.save(password: pwd, salt: _salt!, keyHex: hex);
     if (mounted) _toast('加密配置已保存');
+  }
+
+  void _parseHeader(String text) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) {
+      setState(() {
+        _headerSalt = null;
+        _headerIv = null;
+        _restoredKeyHex = null;
+        _headerError = null;
+      });
+      return;
+    }
+    try {
+      final json = jsonDecode(trimmed) as Map<String, dynamic>;
+      final salt = json['salt'] as String?;
+      if (salt == null) {
+        setState(() => _headerError = 'JSON 中未找到 salt 字段');
+        return;
+      }
+      _headerSalt = salt;
+      _headerIv = json['iv'] as String?;
+    } catch (_) {
+      _headerSalt = trimmed;
+      _headerIv = null;
+    }
+    _headerError = null;
+    _deriveFromHeader();
+  }
+
+  void _deriveFromHeader() {
+    final pwd = _pwdCtrl.text.trim();
+    if (_headerSalt == null) return;
+    if (pwd.isEmpty) {
+      setState(() => _restoredKeyHex = null);
+      return;
+    }
+    try {
+      final key = CryptoService.deriveKey(pwd, _headerSalt!);
+      setState(() => _restoredKeyHex = CryptoService.keyToHex(key));
+    } catch (e) {
+      setState(() {
+        _headerError = '派生失败: $e';
+        _restoredKeyHex = null;
+      });
+    }
+  }
+
+  void _applyRestoredKey() {
+    if (_restoredKeyHex == null || _headerSalt == null) return;
+    setState(() {
+      _keyHex = _restoredKeyHex;
+      _salt = _headerSalt;
+    });
+    _toast('已应用恢复的密钥，请点击"保存配置"以持久化');
   }
 
   void _toast(String msg) {
@@ -71,6 +140,7 @@ class _EncryptionSettingsPageState extends ConsumerState<EncryptionSettingsPage>
   @override
   void dispose() {
     _pwdCtrl.dispose();
+    _headerCtrl.dispose();
     super.dispose();
   }
 
@@ -149,7 +219,9 @@ class _EncryptionSettingsPageState extends ConsumerState<EncryptionSettingsPage>
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(4)),
                           child: Text(
-                            'openssl enc -aes-256-gcm -d -K $_keyHex -iv <iv> -in backup.enc -out backup.zip',
+                            'uv run --with cryptography python3 -c \'from cryptography.hazmat.primitives.ciphers.aead import AESGCM\n'
+                            'd=open("backup.zip.enc","rb").read()\n'
+                            'open("backup.zip","wb").write(AESGCM(bytes.fromhex("$_keyHex")).decrypt(bytes.fromhex("${_headerIv ?? '<iv>'}"),d[16:],None))\'',
                             style: const TextStyle(fontSize: 11, fontFamily: 'monospace', color: Colors.greenAccent),
                           ),
                         ),
@@ -159,19 +231,109 @@ class _EncryptionSettingsPageState extends ConsumerState<EncryptionSettingsPage>
                         icon: const Icon(Icons.copy, size: 18),
                         tooltip: '复制命令',
                         onPressed: () {
-                          Clipboard.setData(ClipboardData(text: 'openssl enc -aes-256-gcm -d -K $_keyHex -iv <iv> -in backup.enc -out backup.zip'));
+                          Clipboard.setData(ClipboardData(text: "uv run --with cryptography python3 -c 'from cryptography.hazmat.primitives.ciphers.aead import AESGCM\n"
+                              "d=open(\"backup.zip.enc\",\"rb\").read()\n"
+                              "open(\"backup.zip\",\"wb\").write(AESGCM(bytes.fromhex(\"$_keyHex\")).decrypt(bytes.fromhex(\"${_headerIv ?? '<iv>'}\"),d[16:],None))'"));
                           _toast('命令已复制');
                         },
                       ),
                     ]),
                     const SizedBox(height: 4),
-                    Text(' <iv> 见 _header.json 中的 iv 字段', style: TextStyle(fontSize: 13, color: Colors.green.shade600)),
+                    Text(_headerIv != null ? ' IV 已从 _header.json 自动填充' : ' <iv> 见 _header.json 中的 iv 字段',
+                        style: TextStyle(fontSize: 13, color: Colors.green.shade600)),
                   ],
                 ]),
               ),
             ),
           ],
           const SizedBox(height: 24),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: OutlinedButton.icon(
+              icon: Icon(_showRecovery ? Icons.expand_less : Icons.expand_more),
+              label: const Text('从备份头恢复密钥'),
+              onPressed: () => setState(() => _showRecovery = !_showRecovery),
+            ),
+          ),
+          if (_showRecovery) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: TextField(
+                controller: _headerCtrl,
+                minLines: 3,
+                maxLines: 5,
+                onChanged: _parseHeader,
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.document_scanner),
+                  border: const OutlineInputBorder(),
+                  labelText: '_header.json 内容',
+                  hintText: '粘贴 _header.json 的内容',
+                  isDense: true,
+                ),
+              ),
+            ),
+            if (_headerError != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Text(_headerError!, style: TextStyle(color: Colors.red.shade600, fontSize: 13)),
+              ),
+            if (_restoredKeyHex != null) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.blue.shade200),
+                  ),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('恢复的密钥', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.blue)),
+                    const SizedBox(height: 8),
+                    SelectableText(_restoredKeyHex!, style: TextStyle(fontSize: 14, fontFamily: 'monospace', color: Colors.blue.shade800)),
+                    if (_headerIv != null) ...[
+                      const SizedBox(height: 12),
+                      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(4)),
+                            child: Text(
+                              'uv run --with cryptography python3 -c \'from cryptography.hazmat.primitives.ciphers.aead import AESGCM\n'
+                              'd=open("backup.zip.enc","rb").read()\n'
+                              'open("backup.zip","wb").write(AESGCM(bytes.fromhex("$_restoredKeyHex")).decrypt(bytes.fromhex("$_headerIv"),d[16:],None))\'',
+                              style: const TextStyle(fontSize: 11, fontFamily: 'monospace', color: Colors.lightBlueAccent),
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          padding: const EdgeInsets.only(top: 24),
+                          icon: const Icon(Icons.copy, size: 16),
+                          tooltip: '复制命令',
+                          onPressed: () {
+                            Clipboard.setData(ClipboardData(text: "uv run --with cryptography python3 -c 'from cryptography.hazmat.primitives.ciphers.aead import AESGCM\n"
+                                "d=open(\"backup.zip.enc\",\"rb\").read()\n"
+                                "open(\"backup.zip\",\"wb\").write(AESGCM(bytes.fromhex(\"$_restoredKeyHex\")).decrypt(bytes.fromhex(\"$_headerIv\"),d[16:],None))'"));
+                            _toast('命令已复制');
+                          },
+                        ),
+                      ]),
+                    ],
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        icon: const Icon(Icons.restore, size: 18),
+                        label: const Text('使用此密钥'),
+                        onPressed: _applyRestoredKey,
+                      ),
+                    ),
+                  ]),
+                ),
+              ),
+            ],
+          ],
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             child: FilledButton.icon(

@@ -50,7 +50,17 @@ class _ImportPageState extends ConsumerState<ImportPage> {
     setState(() => _importing = true);
 
     String actualPath = filePath;
-    final isEnc = fileName.contains('.enc');
+    // Check if this is a new-style outer-ZIP wrapping (.enc + _header.json)
+    final isZip = fileName.endsWith('.zip');
+    if (isZip) {
+      final innerEnc = await _findEncInZip(filePath);
+      if (innerEnc != null) {
+        // new format: outer ZIP contains .enc + _header.json
+        actualPath = innerEnc;
+      }
+    }
+
+    final isEnc = fileName.contains('.enc') || actualPath != filePath;
     if (isEnc) {
       final cfg = await EncryptionConfig.load();
       if (cfg.keyHex.isEmpty) {
@@ -60,7 +70,7 @@ class _ImportPageState extends ConsumerState<ImportPage> {
       }
       try {
         final key = CryptoService.hexToKey(cfg.keyHex);
-        final encBytes = await File(filePath).readAsBytes();
+        final encBytes = await File(actualPath).readAsBytes();
         final decrypted = CryptoService.decrypt(Uint8List.fromList(encBytes), key);
         final decPath = '$filePath.dec';
         await File(decPath).writeAsBytes(decrypted);
@@ -76,11 +86,11 @@ class _ImportPageState extends ConsumerState<ImportPage> {
     int skippedCount = 0;
 
     try {
-      final isZip = fileName.endsWith('.zip') || isEnc;
+      final shouldExtractZip = isZip || isEnc;
       String content;
       final Map<String, String> imagePathMap = {};
 
-      if (isZip) {
+      if (shouldExtractZip) {
         content = await _extractZip(actualPath, imagePathMap);
       } else {
         content = await File(actualPath).readAsString();
@@ -200,6 +210,23 @@ class _ImportPageState extends ConsumerState<ImportPage> {
     } finally {
       if (mounted) setState(() => _importing = false);
     }
+  }
+
+  /// Checks if the ZIP is an outer wrapper containing a .enc file.
+  /// Returns the path to the extracted .enc file, or null.
+  Future<String?> _findEncInZip(String zipPath) async {
+    final bytes = await File(zipPath).readAsBytes();
+    final archive = ZipDecoder().decodeBytes(bytes);
+    for (final file in archive) {
+      if (file.isFile && file.name.endsWith('.enc')) {
+        final tempDir = await Directory.systemTemp.createTemp('import_enc_');
+        final encPath = '${tempDir.path}/${file.name}';
+        await File(encPath).parent.create(recursive: true);
+        await File(encPath).writeAsBytes(file.content as List<int>);
+        return encPath;
+      }
+    }
+    return null;
   }
 
   Future<String> _extractZip(String zipPath, Map<String, String> imagePathMap) async {
