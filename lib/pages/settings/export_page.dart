@@ -457,7 +457,7 @@ class _ExportPageState extends ConsumerState<ExportPage> {
 
   Future<void> _shareOrSave(String zipPath, String fileName, int entryCount) async {
     String finalPath = zipPath;
-    String finalName = fileName;
+    String finalName = '$fileName.zip';
     String? headerPath;
     if (_encrypt && _hasEncryptionKey) {
       final cfg = await EncryptionConfig.load();
