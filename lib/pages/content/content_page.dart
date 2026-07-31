@@ -72,11 +72,9 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
     _init();
   }
 
-  Future<void> _init() async {
+  Future<void> _init({int? navEntryId, DateTime? navDate}) async {
     _initializing = true;
     try {
-    final navEntryId = ref.read(selectedEntryIdProvider);
-    final navDate = ref.read(contentDateProvider);
     ref.read(selectedEntryIdProvider.notifier).state = null;
     ref.read(contentDateProvider.notifier).state = null;
 
@@ -96,12 +94,12 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
       final entry = await db.getEntryById(entryId);
       if (entry == null || !mounted) return;
       _currentGroupId = entry.groupId;
-      final date = DateTime(entry.date.year, entry.date.month, entry.date.day);
-      final entries = await db.getEntriesByDate(date);
+      final entryDate = DateTime(entry.date.year, entry.date.month, entry.date.day);
+      final entries = await db.getEntriesByDate(entryDate);
       if (!mounted) return;
       final idx = entries.indexWhere((e) => e.id == entry.id);
       setState(() {
-        _currentDate = date;
+        _currentDate = entryDate;
         _currentEntries = entries;
         _currentEntryIndex = idx >= 0 ? idx : 0;
       });
@@ -121,6 +119,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   }
 
   bool _initializing = false;
+  bool _navScheduled = false;
 
   @override
   void didChangeDependencies() {
@@ -129,14 +128,14 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   }
 
   void _checkExternalNavigation() {
-    if (_initializing) return;
+    if (!mounted || _initializing) return;
     final navEntryId = ref.read(selectedEntryIdProvider);
     final navDate = ref.read(contentDateProvider);
     if (navEntryId != null || navDate != null) {
       ref.read(selectedEntryIdProvider.notifier).state = null;
       ref.read(contentDateProvider.notifier).state = null;
       _saveNow();
-      _init();
+      _init(navEntryId: navEntryId, navDate: navDate);
     }
   }
 
@@ -686,6 +685,17 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
 
   @override
   Widget build(BuildContext context) {
+    final entryId = ref.watch(selectedEntryIdProvider);
+    final date = ref.watch(contentDateProvider);
+
+    if ((entryId != null || date != null) && !_navScheduled) {
+      _navScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _navScheduled = false;
+        _checkExternalNavigation();
+      });
+    }
+
     final dateStr = '${_currentDate.year}年${_currentDate.month}月${_currentDate.day}日';
     final renderSettings = ref.watch(renderingSettingsProvider);
 
