@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../widgets/section_header.dart';
+import 'display_page.dart';
+import '../llm/llm_settings_page.dart';
+import 'about_page.dart';
+import 'export_page.dart';
+import 'import_page.dart';
+import 'cloud_page.dart';
+import 'encryption_settings_page.dart';
+import 'on_this_day_filter_page.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -13,67 +20,34 @@ class SettingsPage extends StatelessWidget {
       body: ListView(
         children: [
           const SectionHeader('通用'),
-          ListTile(
-            leading: const Icon(Icons.palette),
-            title: const Text('外观'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/settings/display'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.event),
-            title: const Text('那年今日过滤'),
-            subtitle: const Text('设置回顾范围'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/settings/filters'),
-          ),
+          _settingTile(context, Icons.palette, '外观', onTap: () => _push(context, const DisplayPage())),
+          _settingTile(context, Icons.event, '那年今日过滤', subtitle: '设置回顾范围', onTap: () => _push(context, const OnThisDayFilterPage())),
           const SectionHeader('导入 / 导出'),
-          ListTile(
-            leading: const Icon(Icons.lock),
-            title: const Text('加密配置'),
-            subtitle: const Text('设置备份导出加密密码'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/settings/encryption'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.file_upload),
-            title: const Text('导入'),
-            subtitle: const Text('从导出的文件恢复数据'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/settings/import'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.file_download),
-            title: const Text('导出'),
-            subtitle: const Text('导出日记、诗稿等'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/settings/export'),
-          ),
+          _settingTile(context, Icons.lock, '加密配置', subtitle: '设置备份导出加密密码', onTap: () => _push(context, const EncryptionSettingsPage())),
+          _settingTile(context, Icons.file_upload, '导入', subtitle: '从导出的文件恢复数据', onTap: () => _push(context, const ImportPage())),
+          _settingTile(context, Icons.file_download, '导出', subtitle: '导出日记、诗稿等', onTap: () => _push(context, const ExportPage())),
           const SectionHeader('云端'),
-          ListTile(
-            leading: const Icon(Icons.cloud),
-            title: const Text('云端备份'),
-            subtitle: const Text('WebDAV 备份与恢复'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/settings/cloud'),
-          ),
+          _settingTile(context, Icons.cloud, '云端备份', subtitle: 'WebDAV 备份与恢复', onTap: () => _push(context, const CloudPage())),
           const SectionHeader('LLM'),
-          ListTile(
-            leading: const Icon(Icons.smart_toy),
-            title: const Text('LLM 配置'),
-            subtitle: const Text('API 地址、密钥与分析提示词'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/settings/llm'),
-          ),
+          _settingTile(context, Icons.smart_toy, 'LLM 配置', subtitle: 'API 地址、密钥与分析提示词', onTap: () => _push(context, const LlmSettingsPage())),
           const SectionHeader('其他'),
-          ListTile(
-            leading: const Icon(Icons.info),
-            title: const Text('关于'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/settings/about'),
-          ),
+          _settingTile(context, Icons.info, '关于', onTap: () => _push(context, const AboutPage())),
         ],
       ),
     );
   }
-}
 
+  void _push(BuildContext context, Widget page) {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+  }
+
+  Widget _settingTile(BuildContext context, IconData icon, String title, {String? subtitle, VoidCallback? onTap}) {
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(title),
+      subtitle: subtitle != null ? Text(subtitle) : null,
+      trailing: const Icon(Icons.chevron_right),
+      onTap: onTap,
+    );
+  }
+}

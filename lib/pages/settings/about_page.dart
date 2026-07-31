@@ -40,7 +40,7 @@ class AboutPage extends StatelessWidget {
             style: TextStyle(fontSize: 14, height: 1.6),
           ),
           SizedBox(height: 24),
-          _InfoItem(label: '技术栈', value: 'Flutter + Riverpod + drift + go_router'),
+          _InfoItem(label: '技术栈', value: 'Flutter + Riverpod + drift'),
           _InfoItem(label: '运行平台', value: 'Android / Linux / Windows / Web'),
           SizedBox(height: 24),
           Center(

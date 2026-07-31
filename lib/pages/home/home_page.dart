@@ -2,7 +2,6 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../database/database.dart';
 import '../../providers/calendar_data_provider.dart';
@@ -10,6 +9,7 @@ import '../../providers/entry_provider.dart';
 import '../../providers/group_provider.dart';
 import '../../widgets/calendar_widget.dart';
 import '../../widgets/search_widget.dart';
+import '../../services/navigation_state.dart';
 import '../settings/display_page.dart';
 import 'on_this_day_page.dart';
 import 'groups_page.dart';
@@ -103,8 +103,7 @@ class _CalendarViewPageState extends ConsumerState<_CalendarViewPage>
   }
 
   void _navigateToDate(BuildContext context, DateTime date) {
-    final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-    context.go('/content/date/$dateStr');
+    navigateToContentDate(ref, date);
   }
 
   @override
@@ -245,7 +244,7 @@ class _CalendarViewPageState extends ConsumerState<_CalendarViewPage>
         margin: EdgeInsets.zero,
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
-          onTap: () => context.go('/entry/${entry.id}'),
+          onTap: () => navigateToEntry(ref, entry.id),
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Column(

@@ -17,6 +17,7 @@ import '../../providers/group_provider.dart';
 import '../../widgets/markdown_editor.dart';
 import '../../widgets/tag_editor.dart';
 import '../../services/image_service.dart';
+import '../../services/navigation_state.dart';
 import '../../services/rendering_settings.dart';
 
 class ContentPage extends ConsumerStatefulWidget {
@@ -72,7 +73,14 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   }
 
   Future<void> _init() async {
-    final targetDate = widget.initialDate ?? DateTime.now();
+    _initializing = true;
+    try {
+    final navEntryId = ref.read(selectedEntryIdProvider);
+    final navDate = ref.read(contentDateProvider);
+    ref.read(selectedEntryIdProvider.notifier).state = null;
+    ref.read(contentDateProvider.notifier).state = null;
+
+    final targetDate = navDate ?? widget.initialDate ?? DateTime.now();
     _currentDate = DateTime(targetDate.year, targetDate.month, targetDate.day);
 
     final groups = await db.getAllGroups();
@@ -83,8 +91,9 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
     _diaryGroupId = diaryGroup.id;
     _currentGroupId = _diaryGroupId;
 
-    if (widget.entryId != null) {
-      final entry = await db.getEntryById(widget.entryId!);
+    final entryId = navEntryId ?? widget.entryId;
+    if (entryId != null) {
+      final entry = await db.getEntryById(entryId);
       if (entry == null || !mounted) return;
       _currentGroupId = entry.groupId;
       final date = DateTime(entry.date.year, entry.date.month, entry.date.day);
@@ -105,6 +114,29 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
       setState(() => _currentEntries = entries);
       _loadCurrentEntry();
       if (entries.isEmpty) _autoLocate();
+    }
+    } finally {
+      _initializing = false;
+    }
+  }
+
+  bool _initializing = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _checkExternalNavigation();
+  }
+
+  void _checkExternalNavigation() {
+    if (_initializing) return;
+    final navEntryId = ref.read(selectedEntryIdProvider);
+    final navDate = ref.read(contentDateProvider);
+    if (navEntryId != null || navDate != null) {
+      ref.read(selectedEntryIdProvider.notifier).state = null;
+      ref.read(contentDateProvider.notifier).state = null;
+      _saveNow();
+      _init();
     }
   }
 

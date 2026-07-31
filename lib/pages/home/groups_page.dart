@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' hide isNull, isNotNull, Column;
-import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../database/database.dart';
@@ -9,6 +8,7 @@ import '../../providers/calendar_data_provider.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/entry_provider.dart';
 import '../../providers/group_provider.dart';
+import '../../services/navigation_state.dart';
 
 class GroupsPage extends ConsumerStatefulWidget {
   const GroupsPage({super.key});
@@ -238,7 +238,7 @@ class _GroupsPageState extends ConsumerState<GroupsPage> {
                       selected: selected,
                       onTap: _multiSelectMode
                           ? () => _toggleEntrySelection(e)
-                          : () => context.go('/entry/${e.id}'),
+                          : () => navigateToEntry(ref, e.id),
                       onLongPress: _multiSelectMode
                           ? null
                           : () => _startMultiSelect(e),

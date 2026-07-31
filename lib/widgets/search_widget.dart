@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../database/database.dart';
 import '../providers/database_provider.dart';
+import '../services/navigation_state.dart';
 
 String _formatDateShort(DateTime d) =>
     '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
@@ -111,7 +111,7 @@ class _SearchWidgetState extends ConsumerState<SearchWidget> {
                 child: ListTile(
                   title: Text(e.title ?? '无标题', maxLines: 1, style: const TextStyle(fontWeight: FontWeight.w500)),
                   subtitle: Text('${_formatDateShort(e.date)}  ${_entryPreviews[e.id] ?? e.content}', maxLines: 2, style: const TextStyle(fontSize: 12)),
-                  onTap: () { Navigator.pop(ctx); context.go('/entry/${e.id}'); },
+                  onTap: () { Navigator.pop(ctx); navigateToEntry(ref, e.id); },
                 ),
               );
             },
