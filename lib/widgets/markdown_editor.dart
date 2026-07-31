@@ -1,26 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
-import 'package:markdown/markdown.dart' as md;
 
 enum EditorMode { source, preview }
-
-class _StrongBuilder extends MarkdownElementBuilder {
-  @override
-  Widget? visitElementAfterWithContext(
-    BuildContext context,
-    md.Element element,
-    TextStyle? preferredStyle,
-    TextStyle? parentStyle,
-  ) {
-    return Text(
-      element.textContent,
-      style: (parentStyle ?? preferredStyle ?? const TextStyle()).copyWith(
-        fontWeight: FontWeight.bold,
-        fontFamily: 'monospace',
-      ),
-    );
-  }
-}
 
 class MarkdownEditor extends StatefulWidget {
   final TextEditingController? controller;
@@ -210,13 +191,12 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
       data: _controller.text,
       selectable: true,
       padding: const EdgeInsets.all(12),
-      builders: {'strong': _StrongBuilder()},
       styleSheet: MarkdownStyleSheet(
         p: TextStyle(fontSize: widget.bodySize, height: 1.6),
         h1: TextStyle(fontSize: widget.titleSize, fontWeight: FontWeight.bold),
         h2: TextStyle(fontSize: widget.titleSize - 2, fontWeight: FontWeight.bold),
         h3: TextStyle(fontSize: widget.titleSize - 4, fontWeight: FontWeight.bold),
-        strong: TextStyle(fontSize: widget.bodySize, height: 1.6, fontWeight: FontWeight.bold, fontFamily: 'monospace'),
+        strong: TextStyle(fontSize: widget.bodySize, height: 1.6, fontWeight: FontWeight.bold),
       ),
     );
   }

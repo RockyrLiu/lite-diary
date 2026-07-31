@@ -1,9 +1,4 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-final llmApiUrlProvider = StateProvider<String>((ref) => 'https://api.deepseek.com');
-final llmApiKeyProvider = StateProvider<String>((ref) => '');
-final llmModelProvider = StateProvider<String>((ref) => 'deepseek-v4-flash');
 
 class LlmConfigService {
   static Future<Map<String, String>> loadConfig() async {

@@ -8,8 +8,31 @@ import '../../services/rendering_settings.dart';
 import '../../widgets/section_header.dart';
 import '../../widgets/color_scheme_box.dart';
 
-
 final homePageOrderProvider = StateProvider<List<int>>((ref) => const [1, 2, 0]);
+
+final tabVisibilityProvider = StateProvider<Map<String, bool>>((ref) => {
+  'tab_home': true,
+  'tab_content': true,
+  'tab_llm': true,
+  'tab_settings': true,
+});
+
+Future<Map<String, bool>> loadTabVisibility() async {
+  final prefs = await SharedPreferences.getInstance();
+  return {
+    'tab_home': prefs.getBool('tab_home') ?? true,
+    'tab_content': prefs.getBool('tab_content') ?? true,
+    'tab_llm': prefs.getBool('tab_llm') ?? true,
+    'tab_settings': prefs.getBool('tab_settings') ?? true,
+  };
+}
+
+Future<void> saveTabVisibility(Map<String, bool> tabs) async {
+  final prefs = await SharedPreferences.getInstance();
+  for (final entry in tabs.entries) {
+    await prefs.setBool(entry.key, entry.value);
+  }
+}
 
 Future<void> saveHomePageOrder(List<int> order) async {
   final prefs = await SharedPreferences.getInstance();
@@ -24,6 +47,13 @@ class DisplayPage extends ConsumerStatefulWidget {
 }
 
 class _DisplayPageState extends ConsumerState<DisplayPage> {
+  static const _tabItems = <({String prefKey, String label})>[
+    (prefKey: 'tab_home', label: '首页'),
+    (prefKey: 'tab_content', label: '内容'),
+    (prefKey: 'tab_llm', label: 'LLM'),
+    (prefKey: 'tab_settings', label: '设置'),
+  ];
+
   Map<String, bool> _tabs = {};
   List<int> _pageOrder = [1, 2, 0];
   bool _loaded = false;
@@ -37,12 +67,10 @@ class _DisplayPageState extends ConsumerState<DisplayPage> {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
     setState(() {
-      _tabs = {
-        '首页': prefs.getBool('tab_home') ?? true,
-        '内容': prefs.getBool('tab_content') ?? true,
-        'LLM': prefs.getBool('tab_llm') ?? true,
-        '设置': prefs.getBool('tab_settings') ?? true,
-      };
+      _tabs = {};
+      for (final item in _tabItems) {
+        _tabs[item.prefKey] = prefs.getBool(item.prefKey) ?? true;
+      }
       final order = prefs.getStringList('home_page_order');
       _pageOrder = order != null && order.length == 3 ? order.map(int.parse).toList() : [1, 2, 0];
       _loaded = true;
@@ -59,13 +87,19 @@ class _DisplayPageState extends ConsumerState<DisplayPage> {
     saveHomePageOrder(_pageOrder);
   }
 
-  Future<void> _setTab(String key, bool value) async {
+  Future<void> _setTab(String prefKey, bool value) async {
     final prefs = await SharedPreferences.getInstance();
-    final prefKey = {'首页': 'tab_home', '内容': 'tab_content', 'LLM': 'tab_llm', '设置': 'tab_settings'}[key]!;
     await prefs.setBool(prefKey, value);
+    ref.read(tabVisibilityProvider.notifier).state = {
+      ...ref.read(tabVisibilityProvider),
+      prefKey: value,
+    };
+    saveTabVisibility(ref.read(tabVisibilityProvider));
     if (!mounted) return;
-    setState(() => _tabs[key] = value);
+    setState(() => _tabs[prefKey] = value);
   }
+
+  int get _activeTabCount => _tabs.values.where((v) => v).length;
 
   @override
   Widget build(BuildContext context) {
@@ -155,10 +189,15 @@ class _DisplayPageState extends ConsumerState<DisplayPage> {
             child: Text('即时生效', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ),
           if (_loaded) ...[
-            SwitchListTile(title: const Text('首页'), value: _tabs['首页'] ?? true, onChanged: (v) => _setTab('首页', v)),
-            SwitchListTile(title: const Text('内容'), value: _tabs['内容'] ?? true, onChanged: (v) => _setTab('内容', v)),
-            SwitchListTile(title: const Text('LLM'), value: _tabs['LLM'] ?? true, onChanged: (v) => _setTab('LLM', v)),
-            SwitchListTile(title: const Text('设置'), value: _tabs['设置'] ?? true, onChanged: (v) => _setTab('设置', v)),
+            for (final item in _tabItems)
+              SwitchListTile(
+                title: Text(item.label),
+                value: _tabs[item.prefKey] ?? true,
+                onChanged: (v) {
+                  if (!v && _activeTabCount <= 1) return;
+                  _setTab(item.prefKey, v);
+                },
+              ),
           ],
         ],
       ),

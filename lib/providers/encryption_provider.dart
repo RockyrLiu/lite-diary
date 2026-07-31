@@ -1,8 +1,4 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-final encryptionPasswordProvider = StateProvider<String>((ref) => '');
-final encryptionKeyHexProvider = StateProvider<String>((ref) => '');
 
 class EncryptionConfig {
   static const _pwdKey = 'enc_password';

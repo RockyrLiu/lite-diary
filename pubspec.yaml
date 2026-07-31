@@ -39,7 +39,6 @@ dependencies:
   flutter_riverpod: ^2.6.1
   riverpod_annotation: ^2.6.1
   flutter_markdown: ^0.7.6
-  markdown: ^7.2.0
   image_picker: ^1.1.2
   lunar: ^1.7.8
   shared_preferences: ^2.5.5

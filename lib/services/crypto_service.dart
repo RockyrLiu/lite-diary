@@ -42,10 +42,6 @@ class CryptoService {
     return Uint8List.fromList(decrypted);
   }
 
-  static Uint8List extractIv(Uint8List ciphertext) {
-    return Uint8List.fromList(ciphertext.sublist(0, 16));
-  }
-
   static String keyToHex(Uint8List key) {
     return key.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
   }

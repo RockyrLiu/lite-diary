@@ -4,7 +4,6 @@ import 'package:lite_diary/services/lunar_calendar.dart';
 class CalendarData {
   final Map<DateTime, int> dateCounts;
   const CalendarData({required this.dateCounts});
-  factory CalendarData.empty() => CalendarData(dateCounts: {});
   int countForDate(DateTime date) {
     final key = DateTime(date.year, date.month, date.day);
     return dateCounts[key] ?? 0;

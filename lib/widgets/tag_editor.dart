@@ -53,7 +53,6 @@ class _TagEditorState extends ConsumerState<TagEditor> {
 
     if (tag != null && !_entryTags.any((t) => t.id == tag!.id)) {
       await db.attachTag(widget.entryId, tag.id);
-      ref.invalidate(tagsForEntryProvider(widget.entryId));
       await _loadTags();
     }
 
@@ -63,7 +62,6 @@ class _TagEditorState extends ConsumerState<TagEditor> {
 
   Future<void> _removeTag(Tag tag) async {
     await db.detachTag(widget.entryId, tag.id);
-    ref.invalidate(tagsForEntryProvider(widget.entryId));
     await _loadTags();
   }
 

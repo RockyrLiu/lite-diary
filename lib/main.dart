@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'pages/settings/display_page.dart';
 import 'services/rendering_settings.dart';
 import 'services/theme_service.dart';
 import 'widgets/main_shell.dart';
@@ -11,12 +12,14 @@ void main() async {
   final savedMode = await AppTheme.loadThemeMode();
   final colorIndex = await AppTheme.loadColorIndex();
   final renderSettings = await loadRenderingSettings();
+  final savedTabs = await loadTabVisibility();
 
   runApp(ProviderScope(
     overrides: [
       themeModeProvider.overrideWith((ref) => savedMode),
       themeColorIndexProvider.overrideWith((ref) => colorIndex),
       renderingSettingsProvider.overrideWith((ref) => renderSettings),
+      tabVisibilityProvider.overrideWith((ref) => savedTabs),
     ],
     child: const LiteDiaryApp(),
   ));
