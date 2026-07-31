@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'providers/entry_provider.dart';
 import 'router.dart';
 import 'services/rendering_settings.dart';
 import 'services/theme_service.dart';
@@ -33,18 +34,41 @@ class LiteDiaryApp extends ConsumerStatefulWidget {
   ConsumerState<LiteDiaryApp> createState() => _LiteDiaryAppState();
 }
 
-class _LiteDiaryAppState extends ConsumerState<LiteDiaryApp> {
+class _LiteDiaryAppState extends ConsumerState<LiteDiaryApp> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     Future.microtask(() => reloadRouter(ref));
     tabVisibilityNotifier.addListener(_onTabVisibilityChanged);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     tabVisibilityNotifier.removeListener(_onTabVisibilityChanged);
     super.dispose();
+  }
+
+  @override
+  Future<bool> didPopRoute() async {
+    final router = ref.read(routerProvider);
+    try {
+      if (isGroupsMultiSelectActive) {
+        isGroupsMultiSelectActive = false;
+        return true;
+      }
+      final loc = router.routerDelegate.currentConfiguration.last.matchedLocation;
+      if (loc.startsWith('/content') || loc.startsWith('/entry')) {
+        router.go('/');
+        return true;
+      }
+      if (loc.startsWith('/llm')) {
+        router.go('/');
+        return true;
+      }
+    } catch (_) {}
+    return false;
   }
 
   void _onTabVisibilityChanged() {

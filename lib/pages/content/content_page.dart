@@ -733,7 +733,6 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
       floatingActionButton: FloatingActionButton(
         onPressed: _startNewEntry,
         tooltip: '补记',
-        backgroundColor: Color.lerp(Theme.of(context).colorScheme.primary, Colors.white, 0.6)!,
         child: const Icon(Icons.add),
       ),
     );

@@ -46,7 +46,16 @@ class ChatBubble extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             child: isUser
                 ? Text(content, style: TextStyle(color: textColor, fontSize: 15))
-                : MarkdownBody(
+                : content.isEmpty && isLoading
+                    ? SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: textColor.withAlpha(180),
+                        ),
+                      )
+                    : MarkdownBody(
                     data: content,
                     selectable: true,
                     styleSheet: MarkdownStyleSheet(
@@ -63,18 +72,6 @@ class ChatBubble extends StatelessWidget {
                     ),
                   ),
           ),
-          if (isLoading)
-            Padding(
-              padding: const EdgeInsets.only(top: 4, left: 4),
-              child: SizedBox(
-                width: 12,
-                height: 12,
-                child: CircularProgressIndicator(
-                  strokeWidth: 1.5,
-                  color: textColor.withAlpha(120),
-                ),
-              ),
-            ),
         ],
       ),
     );

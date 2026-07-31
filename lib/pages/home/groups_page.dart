@@ -95,6 +95,7 @@ class _GroupsPageState extends ConsumerState<GroupsPage> {
       _multiSelectMode = false;
       _selectedEntryIds.clear();
     });
+    isGroupsMultiSelectActive = false;
   }
 
   Future<void> _batchDelete() async {
@@ -122,7 +123,10 @@ class _GroupsPageState extends ConsumerState<GroupsPage> {
     setState(() {
       if (_selectedEntryIds.contains(entry.id)) {
         _selectedEntryIds.remove(entry.id);
-        if (_selectedEntryIds.isEmpty) _multiSelectMode = false;
+        if (_selectedEntryIds.isEmpty) {
+          _multiSelectMode = false;
+          isGroupsMultiSelectActive = false;
+        }
       } else {
         _selectedEntryIds.add(entry.id);
       }
@@ -144,6 +148,7 @@ class _GroupsPageState extends ConsumerState<GroupsPage> {
       _multiSelectMode = true;
       _selectedEntryIds.add(entry.id);
     });
+    isGroupsMultiSelectActive = true;
   }
 
   String _formatDate(DateTime d) => '${d.month}.${d.day}';
@@ -173,10 +178,13 @@ class _GroupsPageState extends ConsumerState<GroupsPage> {
             IconButton(
                 icon: const Icon(Icons.close),
                 tooltip: '取消',
-                onPressed: () => setState(() {
+                onPressed: () {
+                  isGroupsMultiSelectActive = false;
+                  setState(() {
                       _multiSelectMode = false;
                       _selectedEntryIds.clear();
-                    })),
+                    });
+                }),
           ] else
             IconButton(icon: const Icon(Icons.add), onPressed: _createGroup),
         ],

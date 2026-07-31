@@ -73,7 +73,7 @@ GoRouter _buildRouter({
     navItems.add(const BottomNavigationBarItem(icon: Icon(Icons.settings), label: '设置'));
   }
 
-  return GoRouter(
+  final router = GoRouter(
     initialLocation: '/',
     refreshListenable: tabVisibilityNotifier,
     routes: [
@@ -96,10 +96,11 @@ GoRouter _buildRouter({
       ),
     ],
   );
+
+  return router;
 }
 
 final routerProvider = StateProvider<GoRouter>((ref) {
-  // 初始用默认值构建，main() 中 reload 会更新为持久化值
   return _buildRouter();
 });
 

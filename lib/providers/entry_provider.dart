@@ -4,6 +4,8 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'entry_provider.g.dart';
 
+bool isGroupsMultiSelectActive = false;
+
 @riverpod
 Future<List<Entry>> allEntries(AllEntriesRef ref) {
   return ref.watch(databaseProvider).getAllEntries();
