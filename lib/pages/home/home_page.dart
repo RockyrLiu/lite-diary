@@ -169,6 +169,7 @@ class _CalendarViewPageState extends ConsumerState<_CalendarViewPage>
 
   Widget _buildStats(BuildContext context,
       AsyncValue<List<Entry>> entriesAsync, AsyncValue<List<Group>> groupsAsync) {
+    final colorScheme = Theme.of(context).colorScheme;
     final entries = entriesAsync.valueOrNull;
     final groups = groupsAsync.valueOrNull;
     if (entries == null || groups == null || entries.isEmpty || groups.isEmpty) {
@@ -200,13 +201,15 @@ class _CalendarViewPageState extends ConsumerState<_CalendarViewPage>
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(12),
+          color: colorScheme.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.2),
+          ),
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             _statItem('总篇数', '${entries.length}'),
             _statItem('日记', '$diaryEntries'),
@@ -219,11 +222,13 @@ class _CalendarViewPageState extends ConsumerState<_CalendarViewPage>
   }
 
   Widget _statItem(String label, String value) {
-    return Column(
-      children: [
-        Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        Text(label, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
-      ],
+    return Expanded(
+      child: Column(
+        children: [
+          Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Text(label, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
+        ],
+      ),
     );
   }
 
@@ -242,6 +247,7 @@ class _CalendarViewPageState extends ConsumerState<_CalendarViewPage>
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Card(
         margin: EdgeInsets.zero,
+        color: Theme.of(context).colorScheme.surfaceContainerLowest,
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
           onTap: () => navigateToEntry(ref, entry.id),

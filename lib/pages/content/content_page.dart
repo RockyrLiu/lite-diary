@@ -525,31 +525,97 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   }
 
   Widget _buildContentPane(RenderingSettings renderSettings) {
-    if (_currentEntries.isEmpty && _editingEntryId == null && _isToday(_currentDate) && _editorMode != EditorMode.source) {
+    final isPreview = _editorMode != EditorMode.source;
+
+    if (_currentEntries.isEmpty && _editingEntryId == null && _isToday(_currentDate) && isPreview) {
       return Column(children: [
         Expanded(
-          child: Center(
-              child: Text('今日无事',
-                  style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant))),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Center(
+                  child: Text('今日无事',
+                      style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant))),
+            ),
+          ),
         ),
       ]);
     }
-    return Column(children: [
-      if (_editorMode == EditorMode.source) ...[
-        if (_editingEntryId != null)
-          TagEditor(key: ValueKey(_editingEntryId), entryId: _editingEntryId!, readOnly: false)
-        else
-          _buildPendingTags(),
-      ] else ...[
-        if (_editingEntryId != null)
-          TagEditor(key: ValueKey(_editingEntryId), entryId: _editingEntryId!, readOnly: true)
-      ],
-      Expanded(child: MarkdownEditor(
-        controller: _contentController, externalMode: _editorMode,
-        titleSize: renderSettings.titleSize, bodySize: renderSettings.bodySize,
+
+    final tags = _editorMode == EditorMode.source
+        ? Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_editingEntryId != null)
+                TagEditor(key: ValueKey(_editingEntryId), entryId: _editingEntryId!, readOnly: false)
+              else
+                _buildPendingTags(),
+            ],
+          )
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_editingEntryId != null)
+                TagEditor(key: ValueKey(_editingEntryId), entryId: _editingEntryId!, readOnly: true),
+            ],
+          );
+
+    final markdownEditor = Expanded(
+      child: MarkdownEditor(
+        controller: _contentController,
+        externalMode: _editorMode,
+        titleSize: renderSettings.titleSize,
+        bodySize: renderSettings.bodySize,
         onChanged: (_) => _scheduleSave(),
-        onInsertImage: _editingEntryId != null ? () async => ImageService().pickAndSaveImage(ref, _editingEntryId!) : null,
-      )),
+        onInsertImage: _editingEntryId != null
+            ? () async => ImageService().pickAndSaveImage(ref, _editingEntryId!)
+            : null,
+      ),
+    );
+
+    if (isPreview) {
+      final hasTags = _editingEntryId != null;
+
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.05),
+                blurRadius: 4,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (hasTags)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: tags,
+                  ),
+                markdownEditor,
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(children: [
+      tags,
+      markdownEditor,
     ]);
   }
 

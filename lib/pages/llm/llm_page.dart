@@ -376,7 +376,7 @@ class _LlmPageState extends ConsumerState<LlmPage> {
             color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.39),
             child: Text(
               pinnedIds.isNotEmpty
-                  ? '自定义材料: ${pinnedIds.length} 则记录'
+                  ? '自定义材料: ${pinnedIds.length} 篇文本'
                   : _formatDateRange(dateStart, dateEnd, groupIds),
               style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.71))),
           ),

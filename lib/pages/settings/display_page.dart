@@ -109,7 +109,7 @@ class _DisplayPageState extends ConsumerState<DisplayPage> {
     final presets = ThemeColors.presetColors;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('显示控制')),
+      appBar: AppBar(title: const Text('外观')),
       body: ListView(
         children: [
               const SectionHeader('主题色彩'),
@@ -184,10 +184,6 @@ class _DisplayPageState extends ConsumerState<DisplayPage> {
           ),
           const Divider(),
           const SectionHeader('底部导航栏'),
-          Padding(
-            padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Text('即时生效', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
-          ),
           if (_loaded) ...[
             for (final item in _tabItems)
               SwitchListTile(
