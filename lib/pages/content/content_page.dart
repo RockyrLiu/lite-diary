@@ -59,8 +59,6 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
     return null;
   }
 
-  String _computeHash(DateTime date, String content) => ExportFormat.computeHash(date, content);
-
   @override
   void initState() {
     super.initState();
@@ -190,7 +188,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
         '${_currentDate.year}年${_currentDate.month}月${_currentDate.day}日';
     final now = DateTime.now();
     if (_editingEntryId != null) {
-      final hash = _computeHash(_currentDate, content);
+      final hash = ExportFormat.computeHash(_currentDate, content);
       await db.updateEntry(_editingEntryId!, EntriesCompanion(
         title: Value(title), content: Value(content), updatedAt: Value(now),
         weather: Value(_weather.isEmpty ? null : _weather),
@@ -199,7 +197,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
       ));
       await _attachPendingTags(_editingEntryId!);
     } else {
-      final hash = _computeHash(_currentDate, content);
+      final hash = ExportFormat.computeHash(_currentDate, content);
       final newId = await db.createEntry(EntriesCompanion(
         title: Value(title), date: Value(_currentDate), content: Value(content),
         groupId: Value(_currentGroupId), createdAt: Value(now), updatedAt: Value(now),
@@ -709,8 +707,6 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
     return d.year == now.year && d.month == now.month && d.day == now.day;
   }
 
-  String _dateStr(DateTime d) => ExportFormat.dateStr(d);
-
   bool _parseDate(String s) {
     final parts = s.split('-');
     if (parts.length != 3) return false;
@@ -719,7 +715,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   }
 
   Future<void> _pickDate() async {
-    final ctrl = TextEditingController(text: _dateStr(_currentDate));
+    final ctrl = TextEditingController(text: ExportFormat.dateStr(_currentDate));
     String? errorText;
 
     final result = await showDialog<String>(

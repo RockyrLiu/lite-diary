@@ -193,22 +193,6 @@ class AppDatabase extends _$AppDatabase {
         .get();
   }
 
-  Future<Message?> getLastMessageByConversation(int conversationId) {
-    return (select(messages)
-      ..where((m) => m.conversationId.equals(conversationId))
-      ..orderBy([(m) => OrderingTerm(expression: m.createdAt, mode: OrderingMode.desc)])
-      ..limit(1))
-        .getSingleOrNull();
-  }
-
-  Future<bool> deleteMessagesByConversation(int conversationId) {
-    return (delete(messages)..where((m) => m.conversationId.equals(conversationId))).go().then((count) => count > 0);
-  }
-
-  Future<bool> deleteMessage(int id) {
-    return (delete(messages)..where((m) => m.id.equals(id))).go().then((count) => count > 0);
-  }
-
   Future<bool> updateMessage(int id, MessagesCompanion message) {
     return (update(messages)..where((m) => m.id.equals(id))).write(message).then((count) => count > 0);
   }
@@ -223,10 +207,6 @@ class AppDatabase extends _$AppDatabase {
     return (select(analysisPrompts)
       ..orderBy([(p) => OrderingTerm(expression: p.sortOrder, mode: OrderingMode.asc)]))
         .get();
-  }
-
-  Future<AnalysisPrompt?> getAnalysisPromptById(int id) {
-    return (select(analysisPrompts)..where((p) => p.id.equals(id))).getSingleOrNull();
   }
 
   Future<bool> updateAnalysisPrompt(int id, AnalysisPromptsCompanion prompt) {

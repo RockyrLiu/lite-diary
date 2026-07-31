@@ -33,30 +33,5 @@ void main() {
       expect(tags[0].name, 'A');
       expect(tags[1].name, 'C');
     });
-
-    test('tagsForEntryProvider 获取条目的所有标签', () async {
-      final container = createContainer();
-      final db = container.read(databaseProvider);
-
-      final date = DateTime(2026, 7, 29);
-      final entryId = await db.createEntry(EntriesCompanion(
-        title: const Value('日记'),
-        date: Value(date),
-        content: const Value(''),
-        groupId: const Value(1),
-        createdAt: Value(date),
-        updatedAt: Value(date),
-      ));
-      final tag1 = await db.createTag(TagsCompanion(name: const Value('旅行')));
-      final tag2 = await db.createTag(TagsCompanion(name: const Value('美食')));
-
-      await db.attachTag(entryId, tag1);
-      await db.attachTag(entryId, tag2);
-
-      final tags = await container.read(tagsForEntryProvider(entryId).future);
-      expect(tags.length, 2);
-      final names = tags.map((t) => t.name).toSet();
-      expect(names, containsAll(['旅行', '美食']));
-    });
   });
 }

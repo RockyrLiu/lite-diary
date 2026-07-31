@@ -8,10 +8,3 @@ part 'tag_provider.g.dart';
 Future<List<Tag>> allTags(AllTagsRef ref) {
   return ref.watch(databaseProvider).getAllTags();
 }
-
-
-
-@riverpod
-Future<List<Tag>> tagsForEntry(TagsForEntryRef ref, int entryId) {
-  return ref.watch(databaseProvider).getTagsForEntry(entryId);
-}

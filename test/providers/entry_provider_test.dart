@@ -47,31 +47,6 @@ void main() {
       expect(entries.length, 2);
     });
 
-    test('entryByIdProvider 按 id 查找日记', () async {
-      final container = createContainer();
-      final db = container.read(databaseProvider);
-
-      final date = DateTime(2026, 7, 29);
-      final id = await db.createEntry(EntriesCompanion(
-        title: const Value('目标日记'),
-        date: Value(date),
-        content: const Value(''),
-        groupId: const Value(1),
-        createdAt: Value(date),
-        updatedAt: Value(date),
-      ));
-
-      final entry = await container.read(entryByIdProvider(id).future);
-      expect(entry, isNotNull);
-      expect(entry!.title, '目标日记');
-    });
-
-    test('entryByIdProvider 不存在时返回 null', () async {
-      final container = createContainer();
-      final entry = await container.read(entryByIdProvider(999).future);
-      expect(entry, isNull);
-    });
-
     test('entriesByDateProvider 按日期筛选', () async {
       final container = createContainer();
       final db = container.read(databaseProvider);

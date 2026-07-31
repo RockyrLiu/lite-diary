@@ -12,11 +12,6 @@ Future<List<Entry>> allEntries(AllEntriesRef ref) {
 }
 
 @riverpod
-Future<Entry?> entryById(EntryByIdRef ref, int id) {
-  return ref.watch(databaseProvider).getEntryById(id);
-}
-
-@riverpod
 Future<List<Entry>> entriesByDate(EntriesByDateRef ref, DateTime date) {
   return ref.watch(databaseProvider).getEntriesByDate(date);
 }

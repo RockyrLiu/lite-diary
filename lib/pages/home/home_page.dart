@@ -102,7 +102,7 @@ class _CalendarViewPageState extends ConsumerState<_CalendarViewPage>
     }
   }
 
-  void _navigateToDate(BuildContext context, DateTime date) {
+  void _navigateToDate(DateTime date) {
     navigateToContentDate(ref, date);
   }
 
@@ -148,7 +148,7 @@ class _CalendarViewPageState extends ConsumerState<_CalendarViewPage>
                       child: MonthCalendarWidget(
                           data: CalendarData(dateCounts: counts),
                           initialMonth: now,
-                          onDateTap: (date) => _navigateToDate(context, date)),
+                          onDateTap: (date) => _navigateToDate(date)),
                     ),
                     const SizedBox(height: 8),
                     _buildStats(context, entriesAsync, groupsAsync),
@@ -203,7 +203,7 @@ class _CalendarViewPageState extends ConsumerState<_CalendarViewPage>
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
         decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerLowest,
+          color: colorScheme.primary.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: colorScheme.outlineVariant.withValues(alpha: 0.2),
@@ -245,9 +245,9 @@ class _CalendarViewPageState extends ConsumerState<_CalendarViewPage>
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Card(
-        margin: EdgeInsets.zero,
-        color: Theme.of(context).colorScheme.surfaceContainerLowest,
+      child: Material(
+        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(12),
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
           onTap: () => navigateToEntry(ref, entry.id),

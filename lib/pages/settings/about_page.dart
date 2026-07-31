@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-const appVersion = '0.2.2';
+const appVersion = '0.2.3';
 
 class AboutPage extends StatelessWidget {
   const AboutPage({super.key});
@@ -39,9 +39,6 @@ class AboutPage extends StatelessWidget {
             style: TextStyle(fontSize: 14, height: 1.6),
           ),
           SizedBox(height: 24),
-          _InfoItem(label: '技术栈', value: 'Flutter + Riverpod + drift'),
-          _InfoItem(label: '运行平台', value: 'Android / Linux / Windows / Web'),
-          SizedBox(height: 24),
           Center(
             child: Text('© 2026 lite_diary', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ),
@@ -51,22 +48,3 @@ class AboutPage extends StatelessWidget {
   }
 }
 
-class _InfoItem extends StatelessWidget {
-  final String label;
-  final String value;
-  const _InfoItem({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(width: 80, child: Text('$label：', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14))),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 14))),
-        ],
-      ),
-    );
-  }
-}
