@@ -9,6 +9,7 @@ import '../../providers/database_provider.dart';
 import '../../providers/entry_provider.dart';
 import '../../providers/group_provider.dart';
 import '../../services/navigation_state.dart';
+import '../../widgets/data_scope_selector.dart';
 
 class GroupsPage extends ConsumerStatefulWidget {
   const GroupsPage({super.key});
@@ -119,6 +120,21 @@ class _GroupsPageState extends ConsumerState<GroupsPage> {
     }
   }
 
+  void _sendToLlm() {
+    if (_selectedEntryIds.isEmpty) return;
+    ref.read(pinnedEntryIdsProvider.notifier).state = _selectedEntryIds.toList();
+    final count = _selectedEntryIds.length;
+    setState(() {
+      _multiSelectMode = false;
+      _selectedEntryIds.clear();
+    });
+    isGroupsMultiSelectActive = false;
+    ref.read(activeTabProvider.notifier).state = 2;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('已添加 $count 篇日记作为 LLM 材料'), duration: const Duration(seconds: 2)),
+    );
+  }
+
   void _toggleEntrySelection(Entry entry) {
     setState(() {
       if (_selectedEntryIds.contains(entry.id)) {
@@ -171,6 +187,10 @@ class _GroupsPageState extends ConsumerState<GroupsPage> {
                 icon: const Icon(Icons.select_all),
                 tooltip: '全选',
                 onPressed: _selectAll),
+            IconButton(
+                icon: const Icon(Icons.psychology),
+                tooltip: '发送给 LLM',
+                onPressed: _sendToLlm),
             IconButton(
                 icon: const Icon(Icons.delete),
                 tooltip: '删除选中',

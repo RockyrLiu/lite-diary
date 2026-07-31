@@ -8,6 +8,7 @@ enum _DatePreset { today, week, month, year, all, custom }
 final conversationDateStartProvider = StateProvider<DateTime?>((ref) => null);
 final conversationDateEndProvider = StateProvider<DateTime?>((ref) => null);
 final conversationGroupIdsProvider = StateProvider<List<int>>((ref) => []);
+final pinnedEntryIdsProvider = StateProvider<List<int>>((ref) => []);
 
 class DataScopeSelector extends ConsumerStatefulWidget {
   const DataScopeSelector({super.key});
@@ -159,6 +160,7 @@ class _DataScopeSelectorState extends ConsumerState<DataScopeSelector> {
             final (start, end) = _datesForPreset(_preset);
             ref.read(conversationDateStartProvider.notifier).state = start;
             ref.read(conversationDateEndProvider.notifier).state = end;
+            ref.read(pinnedEntryIdsProvider.notifier).state = [];
             Navigator.pop(context);
           },
           child: const Text('确定'),

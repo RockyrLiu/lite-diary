@@ -15,7 +15,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting() : super(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 8;
 
   // ========== Entry ==========
 
@@ -239,10 +239,9 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> insertDefaultAnalysisPrompts() async {
     final defaults = <Map<String, String>>[
-      {'name': '情绪分析', 'template': '请根据以下日记内容，分析作者的情绪变化和趋势，给出详细分析。\n\n{entries}'},
-      {'name': '今日摘要', 'template': '请对以下今天的日记内容进行总结，提炼关键要点。\n\n{entries}'},
-      {'name': '每周回顾', 'template': '请根据以下本周日记，生成周度回顾（主要事件、情绪变化、收获与反思）。\n\n{entries}'},
-      {'name': '写作建议', 'template': '请阅读以下日记内容，给出写作改进建议（表达方式、结构等）。\n\n{entries}'},
+      {'name': '情绪分析', 'template': '请根据以上日记内容，分析作者的情绪变化和趋势，给出详细分析。'},
+      {'name': '内容摘要', 'template': '请对以上日记内容进行总结，提炼关键要点。'},
+      {'name': '本周回顾', 'template': '请根据以上本周日记，生成周度回顾（主要事件、情绪变化、收获与反思）。'},
     ];
     for (var i = 0; i < defaults.length; i++) {
       final item = defaults[i];
@@ -256,7 +255,6 @@ class AppDatabase extends _$AppDatabase {
       );
     }
   }
-
   // ========== Migration ==========
 
   @override
@@ -283,6 +281,15 @@ class AppDatabase extends _$AppDatabase {
         }
         if (from < 6) {
           await customStatement('DROP TABLE IF EXISTS settings');
+        }
+        if (from < 7) {
+          await customStatement("DELETE FROM analysis_prompts WHERE name = '写作建议'");
+          await customStatement("UPDATE analysis_prompts SET name = '内容摘要' WHERE name = '今日摘要'");
+          await customStatement("UPDATE analysis_prompts SET name = '本周回顾' WHERE name = '每周回顾'");
+        }
+        if (from < 8) {
+          await customStatement("UPDATE analysis_prompts SET prompt_template = REPLACE(prompt_template, '\n\n{entries}', '')");
+          await customStatement("UPDATE analysis_prompts SET prompt_template = REPLACE(prompt_template, '{entries}', '')");
         }
       },
     );

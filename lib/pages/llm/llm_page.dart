@@ -47,11 +47,23 @@ class _LlmPageState extends ConsumerState<LlmPage> {
   }
 
   Future<String> _buildEntriesContext() async {
+    final pinnedIds = ref.read(pinnedEntryIdsProvider);
+    final db = ref.read(databaseProvider);
+
+    if (pinnedIds.isNotEmpty) {
+      final entries = <Entry>[];
+      for (final id in pinnedIds) {
+        final entry = await db.getEntryById(id);
+        if (entry != null) entries.add(entry);
+      }
+      if (entries.isEmpty) return '';
+      return _formatEntries(entries);
+    }
+
     final dateStart = ref.read(conversationDateStartProvider);
     final dateEnd = ref.read(conversationDateEndProvider);
     final groupIds = ref.read(conversationGroupIdsProvider);
 
-    final db = ref.read(databaseProvider);
     var entries = await db.getAllEntries();
 
     if (dateStart != null) {
@@ -66,6 +78,10 @@ class _LlmPageState extends ConsumerState<LlmPage> {
 
     if (entries.isEmpty) return '';
 
+    return _formatEntries(entries);
+  }
+
+  String _formatEntries(List<Entry> entries) {
     final buffer = StringBuffer();
     for (final e in entries) {
       buffer.writeln('---');
@@ -155,10 +171,10 @@ class _LlmPageState extends ConsumerState<LlmPage> {
     if (entriesContext.isNotEmpty) {
       messages.add({
         'role': 'system',
-        'content': '以下是用户的日记内容，供参考：\n\n$entriesContext',
+        'content': '以下是用户提供的文本内容，供参考：\n\n$entriesContext',
       });
     }
-    messages.add({'role': 'system', 'content': '你是一个日记助手，请用中文回复。'});
+    messages.add({'role': 'system', 'content': '你是一个文本分析助手，请用中文回复。'});
 
     final history = await db.getMessagesByConversation(convId);
     for (final msg in history) {
@@ -248,6 +264,7 @@ class _LlmPageState extends ConsumerState<LlmPage> {
     ref.read(conversationDateStartProvider.notifier).state = null;
     ref.read(conversationDateEndProvider.notifier).state = null;
     ref.read(conversationGroupIdsProvider.notifier).state = [];
+    ref.read(pinnedEntryIdsProvider.notifier).state = [];
     ref.read(currentConversationIdProvider.notifier).state = null;
     _inputController.clear();
   }
@@ -274,13 +291,7 @@ class _LlmPageState extends ConsumerState<LlmPage> {
   }
 
   Future<void> _useAnalysisPrompt(AnalysisPrompt prompt) async {
-    final entriesContext = await _buildEntriesContext();
-    if (entriesContext.isEmpty) {
-      _showError('当前数据范围内没有日记，请先选择数据范围');
-      return;
-    }
-    final content = prompt.promptTemplate.replaceAll('{entries}', entriesContext);
-    _sendMessage(overrideContent: content);
+    _sendMessage(overrideContent: prompt.promptTemplate);
   }
 
   String _formatDateRange(DateTime? start, DateTime? end, List<int> groups) {
@@ -305,6 +316,7 @@ class _LlmPageState extends ConsumerState<LlmPage> {
     final groupIds = ref.watch(conversationGroupIdsProvider);
 
     final promptsAsync = ref.watch(allAnalysisPromptsProvider);
+    final pinnedIds = ref.watch(pinnedEntryIdsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -362,7 +374,11 @@ class _LlmPageState extends ConsumerState<LlmPage> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             color: Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha(100),
-            child: Text(_formatDateRange(dateStart, dateEnd, groupIds), style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withAlpha(180))),
+            child: Text(
+              pinnedIds.isNotEmpty
+                  ? '自定义材料: ${pinnedIds.length} 则记录'
+                  : _formatDateRange(dateStart, dateEnd, groupIds),
+              style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withAlpha(180))),
           ),
           Expanded(
             child: convId == null
