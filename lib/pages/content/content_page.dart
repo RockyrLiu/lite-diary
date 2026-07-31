@@ -538,9 +538,17 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
                 color: Theme.of(context).colorScheme.surfaceContainerLowest,
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: Center(
-                  child: Text('今日无事',
-                      style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant))),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Stack(
+                  children: [
+                    _orchidDecoration(),
+                    Center(
+                        child: Text('今日无事',
+                            style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant))),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
@@ -597,15 +605,20 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(14),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+            child: Stack(
               children: [
-                if (hasTags)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                    child: tags,
-                  ),
-                markdownEditor,
+                _orchidDecoration(),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (hasTags)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                        child: tags,
+                      ),
+                    markdownEditor,
+                  ],
+                ),
               ],
             ),
           ),
@@ -617,6 +630,33 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
       tags,
       markdownEditor,
     ]);
+  }
+
+  Widget _orchidDecoration() {
+    final primary = Theme.of(context).colorScheme.primary;
+    return Stack(
+      children: [
+        Positioned(
+          right: -40,
+          bottom: -70,
+          child: Opacity(
+            opacity: 0.04,
+            child: Text('❀', style: TextStyle(fontSize: 300, color: primary)),
+          ),
+        ),
+        Positioned(
+          left: -30,
+          top: -50,
+          child: Opacity(
+            opacity: 0.025,
+            child: Transform.flip(
+              flipX: true,
+              child: Text('❀', style: TextStyle(fontSize: 200, color: primary)),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildPendingTags() {
