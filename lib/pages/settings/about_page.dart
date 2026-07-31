@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 const appVersion = '0.2.1';
 
@@ -11,9 +12,9 @@ class AboutPage extends StatelessWidget {
       appBar: AppBar(title: const Text('关于')),
       body: ListView(
         padding: const EdgeInsets.all(24),
-        children: const [
+        children: [
           Center(
-            child: Icon(Icons.edit_note, size: 72, color: Colors.lightBlue),
+            child: SvgPicture.asset('assets/icon.svg', width: 72, height: 72),
           ),
           SizedBox(height: 16),
           Center(

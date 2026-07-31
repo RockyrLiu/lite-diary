@@ -3,29 +3,29 @@
   <rect width="512" height="512" rx="128" fill="#FFFFFF" stroke="#E8ECF0" stroke-width="4"/>
 
   <!-- Open book - left page -->
-  <path d="M130 180 C130 140 180 130 256 130 C332 130 382 140 382 180 L382 380 C382 375 340 370 256 370 C172 370 130 375 130 380 Z"
-        fill="#F5ECD7"/>
+  <path d="M110 180 C110 140 180 130 256 130 C332 130 402 140 402 180 L402 380 C402 375 340 370 256 370 C172 370 110 375 110 380 Z"
+        fill="#ECDBAE"/>
 
   <!-- Open book - right page -->
-  <path d="M382 180 C382 140 332 130 256 130 C180 130 130 140 130 180 L130 380 C130 375 172 370 256 370 C340 370 382 375 382 380 Z"
-        fill="#FBF2E0"/>
+  <path d="M402 180 C402 140 332 130 256 130 C180 130 110 140 110 180 L110 380 C110 375 172 370 256 370 C340 370 402 375 402 380 Z"
+        fill="#F2E5C8"/>
 
   <!-- Spine -->
-  <line x1="256" y1="130" x2="256" y2="370" stroke="#D5CBB5" stroke-width="3"/>
+  <line x1="256" y1="130" x2="256" y2="370" stroke="#CCB890" stroke-width="3"/>
 
   <!-- Left page lines -->
-  <line x1="194" y1="198" x2="252" y2="198" stroke="#D5CBB5" stroke-width="4" stroke-linecap="round"/>
-  <line x1="194" y1="220" x2="248" y2="220" stroke="#D5CBB5" stroke-width="4" stroke-linecap="round"/>
-  <line x1="194" y1="242" x2="245" y2="242" stroke="#D5CBB5" stroke-width="4" stroke-linecap="round"/>
-  <line x1="194" y1="264" x2="250" y2="264" stroke="#D5CBB5" stroke-width="4" stroke-linecap="round"/>
-  <line x1="194" y1="286" x2="238" y2="286" stroke="#D5CBB5" stroke-width="4" stroke-linecap="round"/>
+  <line x1="177" y1="198" x2="249" y2="198" stroke="#CCB890" stroke-width="4" stroke-linecap="round"/>
+  <line x1="177" y1="220" x2="245" y2="220" stroke="#CCB890" stroke-width="4" stroke-linecap="round"/>
+  <line x1="177" y1="242" x2="242" y2="242" stroke="#CCB890" stroke-width="4" stroke-linecap="round"/>
+  <line x1="177" y1="264" x2="247" y2="264" stroke="#CCB890" stroke-width="4" stroke-linecap="round"/>
+  <line x1="177" y1="286" x2="236" y2="286" stroke="#CCB890" stroke-width="4" stroke-linecap="round"/>
 
   <!-- Right page lines -->
-  <line x1="260" y1="198" x2="318" y2="198" stroke="#E5DBC5" stroke-width="4" stroke-linecap="round"/>
-  <line x1="260" y1="220" x2="316" y2="220" stroke="#E5DBC5" stroke-width="4" stroke-linecap="round"/>
-  <line x1="260" y1="242" x2="313" y2="242" stroke="#E5DBC5" stroke-width="4" stroke-linecap="round"/>
-  <line x1="260" y1="264" x2="318" y2="264" stroke="#E5DBC5" stroke-width="4" stroke-linecap="round"/>
-  <line x1="260" y1="286" x2="306" y2="286" stroke="#E5DBC5" stroke-width="4" stroke-linecap="round"/>
+  <line x1="261" y1="198" x2="326" y2="198" stroke="#DCCDA8" stroke-width="4" stroke-linecap="round"/>
+  <line x1="261" y1="220" x2="324" y2="220" stroke="#DCCDA8" stroke-width="4" stroke-linecap="round"/>
+  <line x1="261" y1="242" x2="321" y2="242" stroke="#DCCDA8" stroke-width="4" stroke-linecap="round"/>
+  <line x1="261" y1="264" x2="326" y2="264" stroke="#DCCDA8" stroke-width="4" stroke-linecap="round"/>
+  <line x1="261" y1="286" x2="314" y2="286" stroke="#DCCDA8" stroke-width="4" stroke-linecap="round"/>
 
   <!-- Accent: bookmark -->
   <path d="M232 130 L232 100 L256 116 L280 100 L280 130 Z" fill="#FF6B4A" opacity="0.85"/>
