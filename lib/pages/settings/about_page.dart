@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-const appVersion = '0.2.3';
+const appVersion = '0.3.0';
+const projectUrl = 'https://github.com/RockyrLiu/lite-diary';
 
 class AboutPage extends StatelessWidget {
   const AboutPage({super.key});
@@ -23,15 +25,6 @@ class AboutPage extends StatelessWidget {
           Center(
             child: Text('v$appVersion', style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ),
-          SizedBox(height: 4),
-          Center(
-            child: Chip(
-              label: Text('测试版', style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.tertiary)),
-              backgroundColor: Theme.of(context).colorScheme.tertiaryContainer,
-              side: BorderSide(color: Theme.of(context).colorScheme.tertiary, width: 0.5),
-              visualDensity: VisualDensity.compact,
-            ),
-          ),
           SizedBox(height: 24),
           Text(
             '一款简洁的私人日记应用，支持 Markdown 编辑、分组管理、标签系统、'
@@ -39,8 +32,18 @@ class AboutPage extends StatelessWidget {
             style: TextStyle(fontSize: 14, height: 1.6),
           ),
           SizedBox(height: 24),
+          ListTile(
+            leading: Icon(Icons.code, color: Theme.of(context).colorScheme.primary),
+            title: const Text('项目地址'),
+            trailing: const Icon(Icons.launch, size: 18),
+            onTap: () => launchUrl(Uri.parse(projectUrl)),
+          ),
+          SizedBox(height: 12),
           Center(
-            child: Text('© 2026 lite_diary', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+            child: Text(
+              '© 2026 Yanrui Liu',
+              style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
           ),
         ],
       ),
