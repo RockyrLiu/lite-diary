@@ -7,6 +7,7 @@ import '../../providers/llm_config_provider.dart';
 import '../../providers/analysis_prompt_provider.dart';
 import '../../providers/database_provider.dart';
 import '../../services/llm_service.dart';
+import '../../services/usage_service.dart';
 import '../../widgets/section_header.dart';
 
 class LlmSettingsPage extends ConsumerStatefulWidget {
@@ -17,16 +18,62 @@ class LlmSettingsPage extends ConsumerStatefulWidget {
 }
 
 class _LlmSettingsPageState extends ConsumerState<LlmSettingsPage> {
+  static const priceModels = ['deepseek-v4-flash', 'deepseek-v4-pro'];
+
   bool? _connected;
   bool _checking = false;
   Map<String, String> _config = {};
+  final Map<String, TextEditingController> _priceInCtrl = {};
+  final Map<String, TextEditingController> _priceHitCtrl = {};
+  final Map<String, TextEditingController> _priceOutCtrl = {};
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadConfig();
+      _loadPrices();
     });
+  }
+
+  @override
+  void dispose() {
+    for (final c in _priceInCtrl.values) {
+      c.dispose();
+    }
+    for (final c in _priceHitCtrl.values) {
+      c.dispose();
+    }
+    for (final c in _priceOutCtrl.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _loadPrices() async {
+    for (final m in priceModels) {
+      final (inMiss, inHit, out) = await UsageService.loadPrice(m);
+      _priceInCtrl[m] = TextEditingController(text: _fmtPrice(inMiss));
+      _priceHitCtrl[m] = TextEditingController(text: _fmtPrice(inHit));
+      _priceOutCtrl[m] = TextEditingController(text: _fmtPrice(out));
+    }
+    if (mounted) setState(() {});
+  }
+
+  String _fmtPrice(double v) => v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toString();
+
+  Future<void> _savePrice(String model) async {
+    final miss = double.tryParse(_priceInCtrl[model]!.text.trim());
+    final hit = double.tryParse(_priceHitCtrl[model]!.text.trim());
+    final out = double.tryParse(_priceOutCtrl[model]!.text.trim());
+    if (miss == null || hit == null || out == null || miss < 0 || hit < 0 || out < 0) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请输入有效的非负数字')));
+      return;
+    }
+    await UsageService.savePrice(model, miss, hit, out);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('已保存 $model 单价')));
+    }
   }
 
   Future<void> _loadConfig() async {
@@ -222,6 +269,57 @@ class _LlmSettingsPageState extends ConsumerState<LlmSettingsPage> {
                 child: Text('连接失败，请检查 API 地址和密钥',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.error)),
+              ),
+            ),
+          const Divider(),
+          const SectionHeader('模型单价'),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Text('设置每百万 token 费用（元），用于 AI 看板估算',
+                style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+          ),
+          for (final m in priceModels)
+            Card(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(m, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _priceInCtrl[m],
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(labelText: '输入（未命中）', border: OutlineInputBorder(), isDense: true),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: _priceHitCtrl[m],
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(labelText: '输入（命中）', border: OutlineInputBorder(), isDense: true),
+                      ),
+                    ),
+                  ]),
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _priceOutCtrl[m],
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(labelText: '输出', border: OutlineInputBorder(), isDense: true),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Center(
+                        child: FilledButton.tonal(onPressed: () => _savePrice(m), child: const Text('保存')),
+                      ),
+                    ),
+                  ]),
+                ]),
               ),
             ),
           const Divider(),

@@ -17,6 +17,7 @@ import '../../widgets/tag_editor.dart';
 import '../../services/image_service.dart';
 import '../../services/navigation_state.dart';
 import '../../services/export_format.dart';
+import '../../services/portrait_service.dart';
 import '../../services/rendering_settings.dart';
 
 class ContentPage extends ConsumerStatefulWidget {
@@ -24,13 +25,19 @@ class ContentPage extends ConsumerStatefulWidget {
   final bool isNew;
   final DateTime? initialDate;
 
-  const ContentPage({super.key, this.entryId, this.isNew = false, this.initialDate});
+  const ContentPage({
+    super.key,
+    this.entryId,
+    this.isNew = false,
+    this.initialDate,
+  });
 
   @override
   ConsumerState<ContentPage> createState() => _ContentPageState();
 }
 
-class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingObserver {
+class _ContentPageState extends ConsumerState<ContentPage>
+    with WidgetsBindingObserver {
   final TextEditingController _contentController = TextEditingController();
   Timer? _saveTimer;
   DateTime _currentDate = DateTime.now();
@@ -69,44 +76,54 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   Future<void> _init({int? navEntryId, DateTime? navDate}) async {
     _initializing = true;
     try {
-    ref.read(selectedEntryIdProvider.notifier).state = null;
-    ref.read(contentDateProvider.notifier).state = null;
+      ref.read(selectedEntryIdProvider.notifier).state = null;
+      ref.read(contentDateProvider.notifier).state = null;
 
-    final targetDate = navDate ?? widget.initialDate ?? DateTime.now();
-    _currentDate = DateTime(targetDate.year, targetDate.month, targetDate.day);
+      final targetDate = navDate ?? widget.initialDate ?? DateTime.now();
+      _currentDate = DateTime(
+        targetDate.year,
+        targetDate.month,
+        targetDate.day,
+      );
 
-    final groups = await db.getAllGroups();
-    final diaryGroup = groups.firstWhere(
-      (g) => g.name == '日记',
-      orElse: () => groups.isNotEmpty ? groups.first : Group(id: 1, name: '日记', sortOrder: 0),
-    );
-    _diaryGroupId = diaryGroup.id;
-    _currentGroupId = _diaryGroupId;
+      final groups = await db.getAllGroups();
+      final diaryGroup = groups.firstWhere(
+        (g) => g.name == '日记',
+        orElse: () => groups.isNotEmpty
+            ? groups.first
+            : Group(id: 1, name: '日记', sortOrder: 0),
+      );
+      _diaryGroupId = diaryGroup.id;
+      _currentGroupId = _diaryGroupId;
 
-    final entryId = navEntryId ?? widget.entryId;
-    if (entryId != null) {
-      final entry = await db.getEntryById(entryId);
-      if (entry == null || !mounted) return;
-      _currentGroupId = entry.groupId;
-      final entryDate = DateTime(entry.date.year, entry.date.month, entry.date.day);
-      final entries = await db.getEntriesByDate(entryDate);
-      if (!mounted) return;
-      final idx = entries.indexWhere((e) => e.id == entry.id);
-      setState(() {
-        _currentDate = entryDate;
-        _currentEntries = entries;
-        _currentEntryIndex = idx >= 0 ? idx : 0;
-      });
-      _loadCurrentEntry();
-    } else if (widget.isNew) {
-      _startNewEntry();
-    } else {
-      final entries = await db.getEntriesByDate(_currentDate);
-      if (!mounted) return;
-      setState(() => _currentEntries = entries);
-      _loadCurrentEntry();
-      if (entries.isEmpty) _autoLocate();
-    }
+      final entryId = navEntryId ?? widget.entryId;
+      if (entryId != null) {
+        final entry = await db.getEntryById(entryId);
+        if (entry == null || !mounted) return;
+        _currentGroupId = entry.groupId;
+        final entryDate = DateTime(
+          entry.date.year,
+          entry.date.month,
+          entry.date.day,
+        );
+        final entries = await db.getEntriesByDate(entryDate);
+        if (!mounted) return;
+        final idx = entries.indexWhere((e) => e.id == entry.id);
+        setState(() {
+          _currentDate = entryDate;
+          _currentEntries = entries;
+          _currentEntryIndex = idx >= 0 ? idx : 0;
+        });
+        _loadCurrentEntry();
+      } else if (widget.isNew) {
+        _startNewEntry();
+      } else {
+        final entries = await db.getEntriesByDate(_currentDate);
+        if (!mounted) return;
+        setState(() => _currentEntries = entries);
+        _loadCurrentEntry();
+        if (entries.isEmpty) _autoLocate();
+      }
     } finally {
       _initializing = false;
     }
@@ -135,7 +152,8 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
       _saveTimer?.cancel();
       _saveNow();
     }
@@ -165,8 +183,9 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
     if (content.isEmpty) {
       if (_editingEntryId != null) {
         await db.deleteEntry(_editingEntryId!);
-        SharedPreferences.getInstance()
-            .then((p) => p.remove('cloud_sync_hash'));
+        SharedPreferences.getInstance().then(
+          (p) => p.remove('cloud_sync_hash'),
+        );
         _editingEntryId = null;
         final refreshedEntries = await db.getEntriesByDate(_currentDate);
         if (mounted) {
@@ -182,29 +201,42 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
       ref.invalidate(entriesByDateProvider(_currentDate));
       ref.invalidate(allEntriesProvider);
       ref.invalidate(calendarDateCountsProvider);
+      await _invalidateAiDerived();
       return;
     }
-    final title = _extractTitle(content) ??
+    final title =
+        _extractTitle(content) ??
         '${_currentDate.year}年${_currentDate.month}月${_currentDate.day}日';
     final now = DateTime.now();
     if (_editingEntryId != null) {
       final hash = ExportFormat.computeHash(_currentDate, content);
-      await db.updateEntry(_editingEntryId!, EntriesCompanion(
-        title: Value(title), content: Value(content), updatedAt: Value(now),
-        weather: Value(_weather.isEmpty ? null : _weather),
-        location: Value(_location.isEmpty ? null : _location),
-        hash: Value(hash),
-      ));
+      await db.updateEntry(
+        _editingEntryId!,
+        EntriesCompanion(
+          title: Value(title),
+          content: Value(content),
+          updatedAt: Value(now),
+          weather: Value(_weather.isEmpty ? null : _weather),
+          location: Value(_location.isEmpty ? null : _location),
+          hash: Value(hash),
+        ),
+      );
       await _attachPendingTags(_editingEntryId!);
     } else {
       final hash = ExportFormat.computeHash(_currentDate, content);
-      final newId = await db.createEntry(EntriesCompanion(
-        title: Value(title), date: Value(_currentDate), content: Value(content),
-        groupId: Value(_currentGroupId), createdAt: Value(now), updatedAt: Value(now),
-        weather: Value(_weather.isEmpty ? null : _weather),
-        location: Value(_location.isEmpty ? null : _location),
-        hash: Value(hash),
-      ));
+      final newId = await db.createEntry(
+        EntriesCompanion(
+          title: Value(title),
+          date: Value(_currentDate),
+          content: Value(content),
+          groupId: Value(_currentGroupId),
+          createdAt: Value(now),
+          updatedAt: Value(now),
+          weather: Value(_weather.isEmpty ? null : _weather),
+          location: Value(_location.isEmpty ? null : _location),
+          hash: Value(hash),
+        ),
+      );
       if (mounted) {
         final refreshedEntries = await db.getEntriesByDate(_currentDate);
         if (mounted) {
@@ -212,7 +244,9 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
           setState(() {
             _editingEntryId = newId;
             _currentEntries = refreshedEntries;
-            _currentEntryIndex = newIndex >= 0 ? newIndex : refreshedEntries.length - 1;
+            _currentEntryIndex = newIndex >= 0
+                ? newIndex
+                : refreshedEntries.length - 1;
           });
         }
       }
@@ -224,6 +258,16 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
     ref.invalidate(entriesByDateProvider(_currentDate));
     ref.invalidate(allEntriesProvider);
     ref.invalidate(calendarDateCountsProvider);
+    await _invalidateAiDerived();
+  }
+
+  /// 日记内容变化后，作废当天的情绪打分与所属周期摘要，等待重新生成。
+  Future<void> _invalidateAiDerived() async {
+    final dayEntries = await db.getEntriesByDate(_currentDate);
+    for (final e in dayEntries) {
+      await db.clearMoodScore(e.id);
+    }
+    await PortraitService(db).invalidateSummariesForDate(_currentDate);
   }
 
   Future<void> _refreshCurrentEntry() async {
@@ -246,7 +290,8 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   }
 
   void _loadCurrentEntry() {
-    if (_currentEntries.isNotEmpty && _currentEntryIndex < _currentEntries.length) {
+    if (_currentEntries.isNotEmpty &&
+        _currentEntryIndex < _currentEntries.length) {
       final entry = _currentEntries[_currentEntryIndex];
       _contentController.text = entry.content;
       _editingEntryId = entry.id;
@@ -285,33 +330,87 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   Future<void> _goToNextDate() async {
     await _saveNow();
     final entries = await db.getAllEntries();
-    final dates = entries.map((e) => DateTime(e.date.year, e.date.month, e.date.day)).toSet().toList()..sort();
-    final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+    final dates =
+        entries
+            .map((e) => DateTime(e.date.year, e.date.month, e.date.day))
+            .toSet()
+            .toList()
+          ..sort();
+    final today = DateTime(
+      DateTime.now().year,
+      DateTime.now().month,
+      DateTime.now().day,
+    );
     if (!dates.any((d) => d == today)) dates.add(today);
     dates.sort();
-    final currentKey = DateTime(_currentDate.year, _currentDate.month, _currentDate.day);
-    final nextDate = dates.firstWhere((d) => d.isAfter(currentKey), orElse: () => _currentDate);
+    final currentKey = DateTime(
+      _currentDate.year,
+      _currentDate.month,
+      _currentDate.day,
+    );
+    final nextDate = dates.firstWhere(
+      (d) => d.isAfter(currentKey),
+      orElse: () => _currentDate,
+    );
     if (nextDate != _currentDate) await _goToDate(nextDate, true);
   }
 
   Future<void> _goToPreviousDate() async {
     await _saveNow();
     final entries = await db.getAllEntries();
-    final dates = entries.map((e) => DateTime(e.date.year, e.date.month, e.date.day)).toSet().toList()..sort();
-    final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+    final dates =
+        entries
+            .map((e) => DateTime(e.date.year, e.date.month, e.date.day))
+            .toSet()
+            .toList()
+          ..sort();
+    final today = DateTime(
+      DateTime.now().year,
+      DateTime.now().month,
+      DateTime.now().day,
+    );
     if (!dates.any((d) => d == today)) dates.add(today);
     dates.sort();
-    final currentKey = DateTime(_currentDate.year, _currentDate.month, _currentDate.day);
-    final prevDate = dates.reversed.firstWhere((d) => d.isBefore(currentKey), orElse: () => _currentDate);
+    final currentKey = DateTime(
+      _currentDate.year,
+      _currentDate.month,
+      _currentDate.day,
+    );
+    final prevDate = dates.reversed.firstWhere(
+      (d) => d.isBefore(currentKey),
+      orElse: () => _currentDate,
+    );
     if (prevDate != _currentDate) await _goToDate(prevDate, false);
   }
 
-  Future<void> _goToNextEntry() async { await _saveNow(); if (_currentEntryIndex < _currentEntries.length - 1) { setState(() { _currentEntryIndex++; _loadCurrentEntry(); }); } }
-  Future<void> _goToPreviousEntry() async { await _saveNow(); if (_currentEntryIndex > 0) { setState(() { _currentEntryIndex--; _loadCurrentEntry(); }); } }
+  Future<void> _goToNextEntry() async {
+    await _saveNow();
+    if (_currentEntryIndex < _currentEntries.length - 1) {
+      setState(() {
+        _currentEntryIndex++;
+        _loadCurrentEntry();
+      });
+    }
+  }
+
+  Future<void> _goToPreviousEntry() async {
+    await _saveNow();
+    if (_currentEntryIndex > 0) {
+      setState(() {
+        _currentEntryIndex--;
+        _loadCurrentEntry();
+      });
+    }
+  }
 
   Future<void> _startNewEntry() async {
     await _saveNow();
-    setState(() { _contentController.clear(); _editingEntryId = null; _currentGroupId = _diaryGroupId; _hasUnsavedChanges = false; });
+    setState(() {
+      _contentController.clear();
+      _editingEntryId = null;
+      _currentGroupId = _diaryGroupId;
+      _hasUnsavedChanges = false;
+    });
     _pendingTags.clear();
     _weather = '';
     _location = '';
@@ -319,11 +418,15 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   }
 
   String _timeStr(DateTime t) {
-    final hm = '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
-    if (t.year == _currentDate.year && t.month == _currentDate.month && t.day == _currentDate.day) {
+    final hm =
+        '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+    if (t.year == _currentDate.year &&
+        t.month == _currentDate.month &&
+        t.day == _currentDate.day) {
       return hm;
     }
-    final md = '${t.month.toString().padLeft(2, '0')}/${t.day.toString().padLeft(2, '0')}';
+    final md =
+        '${t.month.toString().padLeft(2, '0')}/${t.day.toString().padLeft(2, '0')}';
     if (t.year == _currentDate.year) return '$md $hm';
     return '${t.year}/$md $hm';
   }
@@ -353,13 +456,21 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
       if (permission == LocationPermission.deniedForever) return '';
 
       final position = await Geolocator.getCurrentPosition(
-          locationSettings: AndroidSettings(
-              accuracy: LocationAccuracy.high, timeLimit: const Duration(seconds: 10)));
+        locationSettings: AndroidSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 10),
+        ),
+      );
       final placemarks = await placemarkFromCoordinates(
-          position.latitude, position.longitude);
+        position.latitude,
+        position.longitude,
+      );
       if (placemarks.isEmpty) return '';
       final p = placemarks.first;
-      return [p.locality, p.subLocality].where((e) => e != null && e.isNotEmpty).join('');
+      return [
+        p.locality,
+        p.subLocality,
+      ].where((e) => e != null && e.isNotEmpty).join('');
     } catch (_) {
       return '';
     }
@@ -395,7 +506,11 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
             const SizedBox(height: 8),
             TextField(
               controller: weatherCtrl,
-              decoration: const InputDecoration(labelText: '天气', isDense: true, border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                labelText: '天气',
+                isDense: true,
+                border: OutlineInputBorder(),
+              ),
             ),
             const SizedBox(height: 12),
             Row(
@@ -403,7 +518,11 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
                 Expanded(
                   child: TextField(
                     controller: locationCtrl,
-                    decoration: const InputDecoration(labelText: '地点', isDense: true, border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                      labelText: '地点',
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -421,7 +540,10 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
           FilledButton(
             onPressed: () async {
               final w = weatherCtrl.text.trim();
@@ -436,7 +558,9 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
                 if (_editingEntryId != null &&
                     _currentEntries.isNotEmpty &&
                     _currentEntryIndex < _currentEntries.length) {
-                  final idx = _currentEntries.indexWhere((e) => e.id == _editingEntryId);
+                  final idx = _currentEntries.indexWhere(
+                    (e) => e.id == _editingEntryId,
+                  );
                   if (idx >= 0) {
                     _currentEntries[idx] = _currentEntries[idx].copyWith(
                       weather: Value<String?>(w.isEmpty ? null : w),
@@ -446,11 +570,14 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
                 }
                 if (_editingEntryId != null) {
                   final now = DateTime.now();
-                  await db.updateEntry(_editingEntryId!, EntriesCompanion(
-                    weather: Value(w.isEmpty ? null : w),
-                    location: Value(l.isEmpty ? null : l),
-                    updatedAt: Value(now),
-                  ));
+                  await db.updateEntry(
+                    _editingEntryId!,
+                    EntriesCompanion(
+                      weather: Value(w.isEmpty ? null : w),
+                      location: Value(l.isEmpty ? null : l),
+                      updatedAt: Value(now),
+                    ),
+                  );
                   _modifiedTime = _timeStr(now);
                 } else {
                   _hasUnsavedChanges = true;
@@ -470,25 +597,89 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
     final selected = await showModalBottomSheet<int>(
       context: context,
       builder: (ctx) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Padding(padding: const EdgeInsets.all(12), child: Row(children: [
-            const Text('选择分组', style: TextStyle(fontWeight: FontWeight.bold)), const Spacer(),
-            IconButton(icon: const Icon(Icons.add), onPressed: () async {
-              final ctrl = TextEditingController();
-              final name = await showDialog<String>(context: ctx, builder: (dctx) => AlertDialog(
-                title: const Text('新建分组'), content: TextField(controller: ctrl, autofocus: true, decoration: const InputDecoration(hintText: '分组名称')),
-                actions: [TextButton(onPressed: () => Navigator.pop(dctx), child: const Text('取消')), TextButton(onPressed: () => Navigator.pop(dctx, ctrl.text), child: const Text('确定'))],
-              ));
-              if (name != null && name.trim().isNotEmpty) { await db.createGroup(GroupsCompanion(name: Value(name.trim()))); ref.invalidate(allGroupsProvider); if (ctx.mounted) Navigator.pop(ctx); }
-            }),
-          ])),
-          ...groups.map((g) => ListTile(leading: Icon(Icons.folder, color: _currentGroupId == g.id ? Theme.of(context).colorScheme.primary : null), title: Text(g.name), trailing: _currentGroupId == g.id ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary) : null, onTap: () => Navigator.pop(ctx, g.id))),
-        ]),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  const Text(
+                    '选择分组',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.add),
+                    onPressed: () async {
+                      final ctrl = TextEditingController();
+                      final name = await showDialog<String>(
+                        context: ctx,
+                        builder: (dctx) => AlertDialog(
+                          title: const Text('新建分组'),
+                          content: TextField(
+                            controller: ctrl,
+                            autofocus: true,
+                            decoration: const InputDecoration(hintText: '分组名称'),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(dctx),
+                              child: const Text('取消'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(dctx, ctrl.text),
+                              child: const Text('确定'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (name != null && name.trim().isNotEmpty) {
+                        await db.createGroup(
+                          GroupsCompanion(name: Value(name.trim())),
+                        );
+                        ref.invalidate(allGroupsProvider);
+                        if (ctx.mounted) Navigator.pop(ctx);
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+            ...groups.map(
+              (g) => ListTile(
+                leading: Icon(
+                  Icons.folder,
+                  color: _currentGroupId == g.id
+                      ? Theme.of(context).colorScheme.primary
+                      : null,
+                ),
+                title: Text(g.name),
+                trailing: _currentGroupId == g.id
+                    ? Icon(
+                        Icons.check,
+                        color: Theme.of(context).colorScheme.primary,
+                      )
+                    : null,
+                onTap: () => Navigator.pop(ctx, g.id),
+              ),
+            ),
+          ],
+        ),
       ),
     );
     if (selected != null && selected != _currentGroupId && mounted) {
       setState(() => _currentGroupId = selected);
-      if (_editingEntryId != null) { await db.updateEntry(_editingEntryId!, EntriesCompanion(groupId: Value(selected), updatedAt: Value(DateTime.now()))); ref.invalidate(allEntriesProvider); }
+      if (_editingEntryId != null) {
+        await db.updateEntry(
+          _editingEntryId!,
+          EntriesCompanion(
+            groupId: Value(selected),
+            updatedAt: Value(DateTime.now()),
+          ),
+        );
+        ref.invalidate(allEntriesProvider);
+      }
     }
   }
 
@@ -503,17 +694,34 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
         onTap: _editorMode == EditorMode.source ? _editMeta : null,
         child: Row(
           children: [
-            Text(parts.join('  '),
-                style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
+            Text(
+              parts.join('  '),
+              style: TextStyle(
+                fontSize: 13,
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
             if (_location.isNotEmpty) ...[
               const SizedBox(width: 8),
-              Text(_location,
-                  style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+              Text(
+                _location,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
             ],
             if (_weather.isNotEmpty) ...[
               const SizedBox(width: 8),
-              Text(_weather,
-                  style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+              Text(
+                _weather,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
             ],
             const Spacer(),
           ],
@@ -525,32 +733,45 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   Widget _buildContentPane(RenderingSettings renderSettings) {
     final isPreview = _editorMode != EditorMode.source;
 
-    if (_currentEntries.isEmpty && _editingEntryId == null && _isToday(_currentDate) && isPreview) {
-      return Column(children: [
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerLowest,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(14),
-                child: Stack(
-                  children: [
-                    _orchidDecoration(),
-                    Center(
-                        child: Text('今日无事',
-                            style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant))),
-                  ],
+    if (_currentEntries.isEmpty &&
+        _editingEntryId == null &&
+        _isToday(_currentDate) &&
+        isPreview) {
+      return Column(
+        children: [
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerLowest,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: Stack(
+                    children: [
+                      _orchidDecoration(),
+                      Center(
+                        child: Text(
+                          '今日无事',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      ]);
+        ],
+      );
     }
 
     final tags = _editorMode == EditorMode.source
@@ -558,7 +779,11 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
             mainAxisSize: MainAxisSize.min,
             children: [
               if (_editingEntryId != null)
-                TagEditor(key: ValueKey(_editingEntryId), entryId: _editingEntryId!, readOnly: false)
+                TagEditor(
+                  key: ValueKey(_editingEntryId),
+                  entryId: _editingEntryId!,
+                  readOnly: false,
+                )
               else
                 _buildPendingTags(),
             ],
@@ -567,7 +792,11 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
             mainAxisSize: MainAxisSize.min,
             children: [
               if (_editingEntryId != null)
-                TagEditor(key: ValueKey(_editingEntryId), entryId: _editingEntryId!, readOnly: true),
+                TagEditor(
+                  key: ValueKey(_editingEntryId),
+                  entryId: _editingEntryId!,
+                  readOnly: true,
+                ),
             ],
           );
 
@@ -595,7 +824,9 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
             borderRadius: BorderRadius.circular(14),
             boxShadow: [
               BoxShadow(
-                color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.05),
+                color: Theme.of(
+                  context,
+                ).colorScheme.shadow.withValues(alpha: 0.05),
                 blurRadius: 4,
                 offset: const Offset(0, 1),
               ),
@@ -624,10 +855,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
       );
     }
 
-    return Column(children: [
-      tags,
-      markdownEditor,
-    ]);
+    return Column(children: [tags, markdownEditor]);
   }
 
   Widget _orchidDecoration() {
@@ -669,14 +897,15 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
               spacing: 6,
               runSpacing: 4,
               children: _pendingTags
-                  .map((tag) => Chip(
-                        label: Text(tag, style: const TextStyle(fontSize: 12)),
-                        deleteIcon: const Icon(Icons.close, size: 16),
-                        onDeleted: () =>
-                            setState(() => _pendingTags.remove(tag)),
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
-                      ))
+                  .map(
+                    (tag) => Chip(
+                      label: Text(tag, style: const TextStyle(fontSize: 12)),
+                      deleteIcon: const Icon(Icons.close, size: 16),
+                      onDeleted: () => setState(() => _pendingTags.remove(tag)),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  )
                   .toList(),
             ),
           SizedBox(
@@ -710,12 +939,22 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
   bool _parseDate(String s) {
     final parts = s.split('-');
     if (parts.length != 3) return false;
-    final y = int.tryParse(parts[0]), m = int.tryParse(parts[1]), d2 = int.tryParse(parts[2]);
-    return y != null && m != null && d2 != null && m >= 1 && m <= 12 && d2 >= 1 && d2 <= 31;
+    final y = int.tryParse(parts[0]),
+        m = int.tryParse(parts[1]),
+        d2 = int.tryParse(parts[2]);
+    return y != null &&
+        m != null &&
+        d2 != null &&
+        m >= 1 &&
+        m <= 12 &&
+        d2 >= 1 &&
+        d2 <= 31;
   }
 
   Future<void> _pickDate() async {
-    final ctrl = TextEditingController(text: ExportFormat.dateStr(_currentDate));
+    final ctrl = TextEditingController(
+      text: ExportFormat.dateStr(_currentDate),
+    );
     String? errorText;
 
     final result = await showDialog<String>(
@@ -737,12 +976,21 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
               ),
               if (errorText != null) ...[
                 const SizedBox(height: 8),
-                Text(errorText!, style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 13)),
+                Text(
+                  errorText!,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                    fontSize: 13,
+                  ),
+                ),
               ],
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消'),
+            ),
             FilledButton(
               onPressed: () {
                 final text = ctrl.text.trim();
@@ -760,7 +1008,11 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
     );
     if (result != null && mounted) {
       final parts = result.split('-');
-      final target = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+      final target = DateTime(
+        int.parse(parts[0]),
+        int.parse(parts[1]),
+        int.parse(parts[2]),
+      );
       await _goToDate(target, target.isAfter(_currentDate));
     }
   }
@@ -793,7 +1045,8 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
       });
     }
 
-    final dateStr = '${_currentDate.year}年${_currentDate.month}月${_currentDate.day}日';
+    final dateStr =
+        '${_currentDate.year}年${_currentDate.month}月${_currentDate.day}日';
     final renderSettings = ref.watch(renderingSettingsProvider);
 
     return Scaffold(
@@ -801,21 +1054,45 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
         title: GestureDetector(
           onTap: _pickDate,
           behavior: HitTestBehavior.opaque,
-          child: Column(children: [
-            Row(mainAxisSize: MainAxisSize.min, children: [
-              Text(dateStr, style: const TextStyle(fontWeight: FontWeight.bold)),
-            ]),
-            if (_currentEntries.length > 1) Text('${_currentEntryIndex + 1}/${_currentEntries.length}', style: const TextStyle(fontSize: 12)),
-          ]),
+          child: Column(
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    dateStr,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              if (_currentEntries.length > 1)
+                Text(
+                  '${_currentEntryIndex + 1}/${_currentEntries.length}',
+                  style: const TextStyle(fontSize: 12),
+                ),
+            ],
+          ),
         ),
         actions: [
           if (_currentEntries.length > 1) ...[
-            IconButton(icon: const Icon(Icons.arrow_upward), onPressed: _goToPreviousEntry),
-            IconButton(icon: const Icon(Icons.arrow_downward), onPressed: _goToNextEntry),
+            IconButton(
+              icon: const Icon(Icons.arrow_upward),
+              onPressed: _goToPreviousEntry,
+            ),
+            IconButton(
+              icon: const Icon(Icons.arrow_downward),
+              onPressed: _goToNextEntry,
+            ),
           ],
-          IconButton(icon: const Icon(Icons.folder), tooltip: '分组', onPressed: _pickGroup),
           IconButton(
-            icon: Icon(_editorMode == EditorMode.source ? Icons.visibility : Icons.edit),
+            icon: const Icon(Icons.folder),
+            tooltip: '分组',
+            onPressed: _pickGroup,
+          ),
+          IconButton(
+            icon: Icon(
+              _editorMode == EditorMode.source ? Icons.visibility : Icons.edit,
+            ),
             tooltip: _editorMode == EditorMode.source ? '渲染' : '编辑',
             onPressed: () async {
               final goingToPreview = _editorMode == EditorMode.source;
@@ -824,7 +1101,11 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
                 await _saveNow();
               }
               if (!mounted) return;
-              setState(() { _editorMode = goingToPreview ? EditorMode.preview : EditorMode.source; });
+              setState(() {
+                _editorMode = goingToPreview
+                    ? EditorMode.preview
+                    : EditorMode.source;
+              });
             },
           ),
         ],
@@ -838,37 +1119,47 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
                   ? defaultScrollNotificationPredicate
                   : (_) => false,
               child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onHorizontalDragEnd: (details) {
-          if (_editorMode == EditorMode.source) return;
-          if (details.primaryVelocity != null) {
-            if (details.primaryVelocity! < -50) { _goToNextDate(); } else if (details.primaryVelocity! > 50) { _goToPreviousDate(); }
-          }
-        },
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 300),
-          switchInCurve: Curves.easeOut,
-          switchOutCurve: Curves.easeIn,
-          transitionBuilder: (child, animation) {
-            return SlideTransition(
-              position: Tween<Offset>(
-                begin: Offset(_slideForward ? 1 : -1, 0),
-                end: Offset.zero,
-              ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
-              child: child,
-            );
-          },
-          child: KeyedSubtree(
-            key: ValueKey(_currentDate),
-            child: _buildContentPane(renderSettings),
+                behavior: HitTestBehavior.translucent,
+                onHorizontalDragEnd: (details) {
+                  if (_editorMode == EditorMode.source) return;
+                  if (details.primaryVelocity != null) {
+                    if (details.primaryVelocity! < -50) {
+                      _goToNextDate();
+                    } else if (details.primaryVelocity! > 50) {
+                      _goToPreviousDate();
+                    }
+                  }
+                },
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  switchInCurve: Curves.easeOut,
+                  switchOutCurve: Curves.easeIn,
+                  transitionBuilder: (child, animation) {
+                    return SlideTransition(
+                      position:
+                          Tween<Offset>(
+                            begin: Offset(_slideForward ? 1 : -1, 0),
+                            end: Offset.zero,
+                          ).animate(
+                            CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeOut,
+                            ),
+                          ),
+                      child: child,
+                    );
+                  },
+                  child: KeyedSubtree(
+                    key: ValueKey(_currentDate),
+                    child: _buildContentPane(renderSettings),
+                  ),
+                ),
+              ),
+            ),
           ),
-        ),
+          _buildStatusBar(),
+        ],
       ),
-      ),
-    ),
-    _buildStatusBar(),
-      ],
-    ),
       floatingActionButton: FloatingActionButton(
         onPressed: _startNewEntry,
         tooltip: '补记',

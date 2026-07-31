@@ -18,12 +18,23 @@ class MainShell extends ConsumerStatefulWidget {
 }
 
 class _MainShellState extends ConsumerState<MainShell> {
-  static const _tabDefs = <({int logicalIndex, IconData icon, String label, String prefKey})>[
-    (logicalIndex: 0, icon: Icons.home, label: '首页', prefKey: 'tab_home'),
-    (logicalIndex: 1, icon: Icons.edit_note, label: '内容', prefKey: 'tab_content'),
-    (logicalIndex: 2, icon: Icons.chat, label: 'LLM', prefKey: 'tab_llm'),
-    (logicalIndex: 3, icon: Icons.settings, label: '设置', prefKey: 'tab_settings'),
-  ];
+  static const _tabDefs =
+      <({int logicalIndex, IconData icon, String label, String prefKey})>[
+        (logicalIndex: 0, icon: Icons.home, label: '首页', prefKey: 'tab_home'),
+        (
+          logicalIndex: 1,
+          icon: Icons.edit_note,
+          label: '内容',
+          prefKey: 'tab_content',
+        ),
+        (logicalIndex: 2, icon: Icons.chat, label: 'AI', prefKey: 'tab_llm'),
+        (
+          logicalIndex: 3,
+          icon: Icons.settings,
+          label: '设置',
+          prefKey: 'tab_settings',
+        ),
+      ];
 
   static const _pages = <Widget>[
     HomePage(),
@@ -60,25 +71,30 @@ class _MainShellState extends ConsumerState<MainShell> {
         }
       },
       child: Scaffold(
-        body: IndexedStack(
-          index: activeTab,
-          children: _pages,
-        ),
+        body: IndexedStack(index: activeTab, children: _pages),
         bottomNavigationBar: Theme(
           data: Theme.of(context).copyWith(
-            splashColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+            splashColor: Theme.of(
+              context,
+            ).colorScheme.primary.withValues(alpha: 0.08),
           ),
           child: BottomNavigationBar(
             currentIndex: displayIndex,
             onTap: (visibleIndex) {
               if (visibleIndex < visibleTabs.length) {
-                ref.read(activeTabProvider.notifier).state = visibleTabs[visibleIndex];
+                ref.read(activeTabProvider.notifier).state =
+                    visibleTabs[visibleIndex];
               }
             },
             type: BottomNavigationBarType.fixed,
             items: visibleTabs.map((logicalIndex) {
-              final def = _tabDefs.firstWhere((t) => t.logicalIndex == logicalIndex);
-              return BottomNavigationBarItem(icon: Icon(def.icon), label: def.label);
+              final def = _tabDefs.firstWhere(
+                (t) => t.logicalIndex == logicalIndex,
+              );
+              return BottomNavigationBarItem(
+                icon: Icon(def.icon),
+                label: def.label,
+              );
             }).toList(),
           ),
         ),
