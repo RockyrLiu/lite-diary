@@ -190,7 +190,7 @@ class _CloudPageState extends ConsumerState<CloudPage> {
       height: 12,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: _connected == true ? Colors.green : Colors.red,
+        color: _connected == true ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.error,
       ),
     );
   }
@@ -269,10 +269,10 @@ class _CloudPageState extends ConsumerState<CloudPage> {
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: _status!.contains('失败')
-                      ? Colors.red.shade50
+                      ? Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.3)
                       : _status!.contains('最新')
-                          ? Colors.grey.shade100
-                          : Colors.green.shade50,
+                          ? Theme.of(context).colorScheme.surfaceContainerHighest
+                          : Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(_status!,
@@ -280,8 +280,8 @@ class _CloudPageState extends ConsumerState<CloudPage> {
                     style: TextStyle(
                       fontSize: 13,
                       color: _status!.contains('失败')
-                          ? Colors.red.shade700
-                          : Colors.grey.shade700,
+                          ? Theme.of(context).colorScheme.error
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
                     )),
               ),
             ),
@@ -393,7 +393,7 @@ class _WebDAVDialogState extends State<_WebDAVDialog> {
       ),
       actions: [
         if (widget.configured)
-          TextButton(onPressed: _delete, style: TextButton.styleFrom(foregroundColor: Colors.red), child: const Text('删除')),
+          TextButton(onPressed: _delete, style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error), child: const Text('删除')),
         TextButton(onPressed: _cancel, child: const Text('取消')),
         FilledButton(onPressed: _save, child: const Text('保存')),
       ],

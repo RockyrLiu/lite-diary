@@ -216,7 +216,7 @@ class _GroupsPageState extends ConsumerState<GroupsPage> {
             width: 120,
              child: groupsAsync.when(
                data: (groups) {
-                 final selColor = Theme.of(context).colorScheme.primary.withAlpha(30);
+                 final selColor = Theme.of(context).colorScheme.primary.withValues(alpha: 0.12);
                  return ListView(
                 children: [
                   ListTile(
@@ -283,7 +283,7 @@ class _GroupsPageState extends ConsumerState<GroupsPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(leading: const Icon(Icons.edit), title: const Text('重命名'), onTap: () { Navigator.pop(context); _renameGroup(group); }),
-            ListTile(leading: const Icon(Icons.delete, color: Colors.red), title: const Text('删除'), onTap: () { Navigator.pop(context); _deleteGroup(group); }),
+            ListTile(leading: Icon(Icons.delete, color: Theme.of(context).colorScheme.error), title: const Text('删除'), onTap: () { Navigator.pop(context); _deleteGroup(group); }),
           ],
         ),
       ),
@@ -313,7 +313,7 @@ class _EntryCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
       color: selected
-          ? Theme.of(context).colorScheme.primary.withAlpha(25)
+          ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.10)
           : null,
       child: ListTile(
         leading: selected ? const Icon(Icons.check_circle, size: 20) : null,

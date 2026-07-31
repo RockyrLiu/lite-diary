@@ -152,7 +152,7 @@ class _EncryptionSettingsPageState extends ConsumerState<EncryptionSettingsPage>
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text('设置加密密码后，云端备份和本地导入导出将自动使用加密。',
-                style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface.withAlpha(180))),
+                style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.71))),
           ),
           const SizedBox(height: 12),
           Padding(
@@ -182,13 +182,13 @@ class _EncryptionSettingsPageState extends ConsumerState<EncryptionSettingsPage>
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.green.shade50,
+                  color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.25),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.green.shade200),
+                  border: Border.all(color: Theme.of(context).colorScheme.primaryContainer),
                 ),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(children: [
-                    Expanded(child: const Text('派生密钥（请务必妥善保存）', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.green))),
+                    Expanded(child: Text('派生密钥（请务必妥善保存）', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.primary))),
                     IconButton(
                       icon: Icon(_keyVisible ? Icons.visibility_off : Icons.visibility, size: 20),
                       tooltip: _keyVisible ? '隐藏密钥' : '显示密钥',
@@ -198,7 +198,7 @@ class _EncryptionSettingsPageState extends ConsumerState<EncryptionSettingsPage>
                   if (_keyVisible) ...[
                     const SizedBox(height: 8),
                     Row(children: [
-                      Expanded(child: SelectableText(_keyHex!, style: TextStyle(fontSize: 14, fontFamily: 'monospace', color: Colors.green.shade800))),
+                      Expanded(child: SelectableText(_keyHex!, style: TextStyle(fontSize: 14, fontFamily: 'monospace', color: Theme.of(context).colorScheme.onPrimaryContainer))),
                       IconButton(
                         icon: const Icon(Icons.copy, size: 18),
                         tooltip: '复制密钥',
@@ -209,18 +209,18 @@ class _EncryptionSettingsPageState extends ConsumerState<EncryptionSettingsPage>
                       ),
                     ]),
                     const SizedBox(height: 8),
-                    const Text('手动解密命令', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.green)),
+                    Text('手动解密命令', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Theme.of(context).colorScheme.primary)),
                     const SizedBox(height: 4),
                     Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Expanded(
                         child: Container(
                           padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(4)),
+                          decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerLow, borderRadius: BorderRadius.circular(4)),
                           child: Text(
                             'uv run --with cryptography python3 -c \'from cryptography.hazmat.primitives.ciphers.aead import AESGCM\n'
                             'd=open("backup.zip.enc","rb").read()\n'
                             'open("backup.zip","wb").write(AESGCM(bytes.fromhex("$_keyHex")).decrypt(d[:16],d[16:],None))\'',
-                            style: const TextStyle(fontSize: 11, fontFamily: 'monospace', color: Colors.greenAccent),
+                            style: TextStyle(fontSize: 11, fontFamily: 'monospace', color: Theme.of(context).colorScheme.primary),
                           ),
                         ),
                       ),
@@ -270,7 +270,7 @@ class _EncryptionSettingsPageState extends ConsumerState<EncryptionSettingsPage>
             if (_headerError != null)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: Text(_headerError!, style: TextStyle(color: Colors.red.shade600, fontSize: 13)),
+                child: Text(_headerError!, style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 13)),
               ),
             if (_restoredKeyHex != null) ...[
               Padding(
@@ -279,14 +279,14 @@ class _EncryptionSettingsPageState extends ConsumerState<EncryptionSettingsPage>
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
+                    color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.25),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.blue.shade200),
+                    border: Border.all(color: Theme.of(context).colorScheme.primaryContainer),
                   ),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('恢复的密钥', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.blue)),
+                    Text('恢复的密钥', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.primary)),
                     const SizedBox(height: 8),
-                    SelectableText(_restoredKeyHex!, style: TextStyle(fontSize: 14, fontFamily: 'monospace', color: Colors.blue.shade800)),
+                    SelectableText(_restoredKeyHex!, style: TextStyle(fontSize: 14, fontFamily: 'monospace', color: Theme.of(context).colorScheme.onPrimaryContainer)),
                     const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
@@ -315,7 +315,7 @@ class _EncryptionSettingsPageState extends ConsumerState<EncryptionSettingsPage>
               child: OutlinedButton.icon(
                 icon: const Icon(Icons.delete),
                 label: const Text('清除加密配置'),
-                style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
                 onPressed: () async {
                   await EncryptionConfig.delete();
                   _pwdCtrl.clear();

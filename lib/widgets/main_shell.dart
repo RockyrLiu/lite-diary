@@ -47,7 +47,7 @@ class _MainShellState extends ConsumerState<MainShell> {
         ),
         bottomNavigationBar: Theme(
           data: Theme.of(context).copyWith(
-            splashColor: Theme.of(context).colorScheme.primary.withAlpha(20),
+            splashColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
           ),
           child: BottomNavigationBar(
             currentIndex: activeTab,

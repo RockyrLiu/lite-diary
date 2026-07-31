@@ -113,7 +113,7 @@ class _MonthCalendarWidgetState extends State<MonthCalendarWidget> {
 
   Widget _buildDayHeaders() {
     const dayNames = ['日', '一', '二', '三', '四', '五', '六'];
-    return Row(children: dayNames.map((name) => Expanded(child: Center(child: Text(name, style: TextStyle(fontSize: 14, color: Colors.grey.shade600))))).toList());
+    return Row(children: dayNames.map((name) => Expanded(child: Center(child: Text(name, style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)))))).toList());
   }
 
   Widget _buildDateGrid() {
@@ -138,13 +138,13 @@ class _MonthCalendarWidgetState extends State<MonthCalendarWidget> {
         child: Container(
           margin: const EdgeInsets.all(2),
           decoration: BoxDecoration(
-            color: isToday ? colorScheme.primary.withAlpha(35) : null,
+            color: isToday ? colorScheme.primary.withValues(alpha: 0.14) : null,
             borderRadius: BorderRadius.circular(8),
-            border: isToday ? Border.all(color: colorScheme.primary.withAlpha(120)) : null,
+            border: isToday ? Border.all(color: colorScheme.primary.withValues(alpha: 0.47)) : null,
           ),
           child: Column(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
             Text('$day', style: TextStyle(fontSize: 18, fontWeight: isToday ? FontWeight.bold : null)),
-            Text(LunarService.lunarDayShort(date), style: TextStyle(fontSize: 11, color: Colors.grey.shade500), maxLines: 1, overflow: TextOverflow.ellipsis),
+            Text(LunarService.lunarDayShort(date), style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant), maxLines: 1, overflow: TextOverflow.ellipsis),
             if (count > 0) Container(width: 6, height: 6, decoration: BoxDecoration(color: colorScheme.primary, shape: BoxShape.circle)),
           ]),
         ),

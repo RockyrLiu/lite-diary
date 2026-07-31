@@ -71,7 +71,7 @@ class _OnThisDayPageState extends ConsumerState<OnThisDayPage> {
           children: [
             if (entry.title != null && entry.title!.isNotEmpty)
               Text(entry.title!, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            Text(dateStr, style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+            Text(dateStr, style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
             const Divider(),
             Markdown(data: entry.content, selectable: true, shrinkWrap: true, physics: const NeverScrollableScrollPhysics()),
           ],

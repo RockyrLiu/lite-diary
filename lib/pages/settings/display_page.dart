@@ -91,9 +91,9 @@ class _DisplayPageState extends ConsumerState<DisplayPage> {
                     ref.read(themeColorIndexProvider.notifier).state = i;
                     AppTheme.saveColorIndex(i);
                   },
-                  badge: i == 0 ? const Padding(
+                  badge: i == 0 ? Padding(
                     padding: EdgeInsets.all(2),
-                    child: Icon(Icons.auto_awesome, size: 14, color: Colors.white70),
+                    child: Icon(Icons.auto_awesome, size: 14, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
                   ) : null,
                 );
               }),
@@ -112,9 +112,9 @@ class _DisplayPageState extends ConsumerState<DisplayPage> {
           ),
           const Divider(),
           const SectionHeader('首页显示'),
-          const Padding(
+          Padding(
             padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Text('第一页面为打开应用时的默认首页，上下箭头调整顺序', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            child: Text('第一页面为打开应用时的默认首页，上下箭头调整顺序', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ),
           if (_loaded)
             Column(children: List.generate(_pageOrder.length, (i) {
@@ -150,9 +150,9 @@ class _DisplayPageState extends ConsumerState<DisplayPage> {
           ),
           const Divider(),
           const SectionHeader('底部导航栏'),
-          const Padding(
+          Padding(
             padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Text('即时生效', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            child: Text('即时生效', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ),
           if (_loaded) ...[
             SwitchListTile(title: const Text('首页'), value: _tabs['首页'] ?? true, onChanged: (v) => _setTab('首页', v)),

@@ -288,9 +288,9 @@ class _ImportPageState extends ConsumerState<ImportPage> {
                 Text('正在导入...'),
               ])
             : Column(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.file_upload, size: 64, color: Colors.grey),
+                Icon(Icons.file_upload, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 const SizedBox(height: 16),
-                const Text('选择导出的 .zip 或 .enc 文件', style: TextStyle(color: Colors.grey)),
+                Text('选择导出的 .zip 或 .enc 文件', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                 const SizedBox(height: 24),
                 FilledButton.icon(
                   onPressed: _pickAndImport,

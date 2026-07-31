@@ -45,7 +45,7 @@ class _ExportPageState extends ConsumerState<ExportPage> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(message),
-      backgroundColor: error ? Colors.red.shade700 : null,
+      backgroundColor: error ? Theme.of(context).colorScheme.error : null,
       duration: const Duration(seconds: 3),
     ));
   }
@@ -130,7 +130,7 @@ class _ExportPageState extends ConsumerState<ExportPage> {
                 ),
                 if (errorText != null) ...[
                   const SizedBox(height: 8),
-                  Text(errorText!, style: TextStyle(color: Colors.red.shade700, fontSize: 13)),
+                  Text(errorText!, style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 13)),
                 ],
               ],
             ),

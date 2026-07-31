@@ -60,7 +60,7 @@ class _OnThisDayFilterPageState extends ConsumerState<OnThisDayFilterPage> {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
             child: Text(
               '勾选希望在"那年今日"中展示的分组',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
             ),
           ),
           ..._groups.map((g) => CheckboxListTile(
@@ -75,7 +75,7 @@ class _OnThisDayFilterPageState extends ConsumerState<OnThisDayFilterPage> {
               _selectedGroupIds.isEmpty
                   ? '当前：全部展示'
                   : '当前：已选 ${_selectedGroupIds.length} 个分组',
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
             ),
           ),
         ],

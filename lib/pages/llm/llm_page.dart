@@ -238,7 +238,7 @@ class _LlmPageState extends ConsumerState<LlmPage> {
 
   void _showError(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Theme.of(context).colorScheme.error));
   }
 
   void _selectConversation(int id) {
@@ -277,7 +277,7 @@ class _LlmPageState extends ConsumerState<LlmPage> {
         content: const Text('确定要删除这个对话吗？'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('删除', style: TextStyle(color: Colors.red))),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text('删除', style: TextStyle(color: Theme.of(ctx).colorScheme.error))),
         ],
       ),
     );
@@ -337,7 +337,7 @@ class _LlmPageState extends ConsumerState<LlmPage> {
             Expanded(
               child: conversationsAsync.when(
                 data: (convs) {
-                  if (convs.isEmpty) return const Center(child: Text('暂无对话', style: TextStyle(color: Colors.grey)));
+                  if (convs.isEmpty) return Center(child: Text('暂无对话', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)));
                   return ListView.builder(
                     itemCount: convs.length,
                     itemBuilder: (_, i) {
@@ -345,7 +345,7 @@ class _LlmPageState extends ConsumerState<LlmPage> {
                       final isActive = c.id == convId;
                       return Card(
                         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        color: isActive ? Theme.of(context).colorScheme.primary.withAlpha(25) : null,
+                        color: isActive ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.10) : null,
                         child: ListTile(
                           selected: isActive,
                           title: Text(c.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w500)),
@@ -373,19 +373,19 @@ class _LlmPageState extends ConsumerState<LlmPage> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            color: Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha(100),
+            color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.39),
             child: Text(
               pinnedIds.isNotEmpty
                   ? '自定义材料: ${pinnedIds.length} 则记录'
                   : _formatDateRange(dateStart, dateEnd, groupIds),
-              style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withAlpha(180))),
+              style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.71))),
           ),
           Expanded(
             child: convId == null
                 ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey.shade400),
+                    Icon(Icons.chat_bubble_outline, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4)),
                     const SizedBox(height: 16),
-                    Text('新建对话或选择历史对话', style: TextStyle(color: Colors.grey.shade500)),
+                    Text('新建对话或选择历史对话', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                   ]))
                 : ref.watch(messagesByConversationProvider(convId)).when(
                       data: (messages) {

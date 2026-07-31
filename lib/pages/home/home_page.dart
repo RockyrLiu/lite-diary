@@ -222,7 +222,7 @@ class _CalendarViewPageState extends ConsumerState<_CalendarViewPage>
     return Column(
       children: [
         Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+        Text(label, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
       ],
     );
   }
@@ -253,9 +253,9 @@ class _CalendarViewPageState extends ConsumerState<_CalendarViewPage>
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.auto_stories, size: 16, color: Colors.grey),
+                    Icon(Icons.auto_stories, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
                     const SizedBox(width: 6),
-                    const Text('旧日诗词', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                    Text('旧日诗词', style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant)),
                     const Spacer(),
                     IconButton(
                       icon: const Icon(Icons.refresh, size: 18),
@@ -275,13 +275,13 @@ class _CalendarViewPageState extends ConsumerState<_CalendarViewPage>
                 const SizedBox(height: 8),
                 if (entry.title != null && entry.title!.isNotEmpty)
                   Text(entry.title!, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-                Text(dateStr, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                Text(dateStr, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
                 const SizedBox(height: 6),
                 Text(
                   preview,
                   maxLines: null,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 15, color: Colors.grey.shade700, height: 1.5),
+                  style: TextStyle(fontSize: 15, color: Theme.of(context).colorScheme.onSurfaceVariant, height: 1.5),
                 ),
               ],
             ),

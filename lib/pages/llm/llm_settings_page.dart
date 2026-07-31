@@ -110,7 +110,7 @@ class _LlmSettingsPageState extends ConsumerState<LlmSettingsPage> {
             if (configured)
               TextButton(
                 onPressed: () => Navigator.pop(ctx, 'delete'),
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                style: TextButton.styleFrom(foregroundColor: Theme.of(ctx).colorScheme.error),
                 child: const Text('删除'),
               ),
             TextButton(
@@ -152,7 +152,7 @@ class _LlmSettingsPageState extends ConsumerState<LlmSettingsPage> {
       width: 12, height: 12,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: _connected == true ? Colors.green : Colors.red,
+        color: _connected == true ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.error,
       ),
     );
   }
@@ -216,12 +216,12 @@ class _LlmSettingsPageState extends ConsumerState<LlmSettingsPage> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.red.shade50,
+                  color: Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Text('连接失败，请检查 API 地址和密钥',
+                child: Text('连接失败，请检查 API 地址和密钥',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 13, color: Colors.red)),
+                    style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.error)),
               ),
             ),
           const Divider(),
@@ -260,7 +260,7 @@ class _LlmSettingsPageState extends ConsumerState<LlmSettingsPage> {
             content: Text(content),
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-              TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('确定', style: TextStyle(color: Colors.red))),
+              TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text('确定', style: TextStyle(color: Theme.of(ctx).colorScheme.error))),
             ],
           ),
         ) == true;
@@ -347,7 +347,7 @@ class _PromptTile extends StatelessWidget {
       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
         IconButton(icon: Icon(prompt.isVisible ? Icons.visibility : Icons.visibility_off, size: 20), onPressed: onToggle, tooltip: prompt.isVisible ? '对话页可见' : '对话页隐藏'),
         IconButton(icon: const Icon(Icons.edit, size: 20), onPressed: onEdit),
-        IconButton(icon: const Icon(Icons.delete, size: 20, color: Colors.red), onPressed: onDelete),
+        IconButton(icon: Icon(Icons.delete, size: 20, color: Theme.of(context).colorScheme.error), onPressed: onDelete),
       ]),
     );
   }

@@ -52,7 +52,7 @@ class ChatBubble extends StatelessWidget {
                         height: 16,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: textColor.withAlpha(180),
+                          color: textColor.withValues(alpha: 0.71),
                         ),
                       )
                     : MarkdownBody(

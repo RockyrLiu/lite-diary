@@ -484,7 +484,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
               if (name != null && name.trim().isNotEmpty) { await db.createGroup(GroupsCompanion(name: Value(name.trim()))); ref.invalidate(allGroupsProvider); if (ctx.mounted) Navigator.pop(ctx); }
             }),
           ])),
-          ...groups.map((g) => ListTile(leading: Icon(Icons.folder, color: _currentGroupId == g.id ? Colors.lightBlue : null), title: Text(g.name), trailing: _currentGroupId == g.id ? const Icon(Icons.check, color: Colors.lightBlue) : null, onTap: () => Navigator.pop(ctx, g.id))),
+          ...groups.map((g) => ListTile(leading: Icon(Icons.folder, color: _currentGroupId == g.id ? Theme.of(context).colorScheme.primary : null), title: Text(g.name), trailing: _currentGroupId == g.id ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary) : null, onTap: () => Navigator.pop(ctx, g.id))),
         ]),
       ),
     );
@@ -506,16 +506,16 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
         child: Row(
           children: [
             Text(parts.join('  '),
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+                style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
             if (_location.isNotEmpty) ...[
               const SizedBox(width: 8),
               Text(_location,
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade500)),
+                  style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant)),
             ],
             if (_weather.isNotEmpty) ...[
               const SizedBox(width: 8),
               Text(_weather,
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade500)),
+                  style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant)),
             ],
             const Spacer(),
           ],
@@ -526,11 +526,11 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
 
   Widget _buildContentPane(RenderingSettings renderSettings) {
     if (_currentEntries.isEmpty && _editingEntryId == null && _isToday(_currentDate) && _editorMode != EditorMode.source) {
-      return const Column(children: [
+      return Column(children: [
         Expanded(
           child: Center(
               child: Text('今日无事',
-                  style: TextStyle(fontSize: 16, color: Colors.grey))),
+                  style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant))),
         ),
       ]);
     }
@@ -635,7 +635,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
               ),
               if (errorText != null) ...[
                 const SizedBox(height: 8),
-                Text(errorText!, style: TextStyle(color: Colors.red.shade700, fontSize: 13)),
+                Text(errorText!, style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 13)),
               ],
             ],
           ),

@@ -86,7 +86,7 @@ class _TagEditorState extends ConsumerState<TagEditor> {
               label: Text(tag.name, style: const TextStyle(fontSize: 12)),
               deleteIcon: widget.readOnly ? null : const Icon(Icons.close, size: 16),
               onDeleted: widget.readOnly ? null : () => _removeTag(tag),
-              backgroundColor: colorScheme.primaryContainer.withAlpha(180),
+              backgroundColor: colorScheme.primaryContainer.withValues(alpha: 0.71),
               side: BorderSide.none,
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               visualDensity: VisualDensity.compact,
@@ -117,7 +117,7 @@ class _TagEditorState extends ConsumerState<TagEditor> {
                 child: ActionChip(
                   label: Text(tag.name, style: const TextStyle(fontSize: 12)),
                   onPressed: () => _addTag(tag.name),
-                  backgroundColor: colorScheme.secondaryContainer.withAlpha(120),
+                  backgroundColor: colorScheme.secondaryContainer.withValues(alpha: 0.47),
                   side: BorderSide.none,
                   visualDensity: VisualDensity.compact,
                 ),

@@ -21,14 +21,14 @@ class AboutPage extends StatelessWidget {
           ),
           SizedBox(height: 8),
           Center(
-            child: Text('v$appVersion', style: TextStyle(fontSize: 14, color: Colors.grey)),
+            child: Text('v$appVersion', style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ),
           SizedBox(height: 4),
           Center(
             child: Chip(
-              label: Text('测试版', style: TextStyle(fontSize: 11, color: Colors.orange)),
-              backgroundColor: Color(0x1AFF9800),
-              side: BorderSide(color: Colors.orange, width: 0.5),
+              label: Text('测试版', style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.tertiary)),
+              backgroundColor: Theme.of(context).colorScheme.tertiaryContainer,
+              side: BorderSide(color: Theme.of(context).colorScheme.tertiary, width: 0.5),
               visualDensity: VisualDensity.compact,
             ),
           ),
@@ -43,7 +43,7 @@ class AboutPage extends StatelessWidget {
           _InfoItem(label: '运行平台', value: 'Android / Linux / Windows / Web'),
           SizedBox(height: 24),
           Center(
-            child: Text('© 2026 lite_diary', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            child: Text('© 2026 lite_diary', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ),
         ],
       ),
@@ -63,7 +63,7 @@ class _InfoItem extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(width: 80, child: Text('$label：', style: const TextStyle(color: Colors.grey, fontSize: 14))),
+          SizedBox(width: 80, child: Text('$label：', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14))),
           Expanded(child: Text(value, style: const TextStyle(fontSize: 14))),
         ],
       ),
