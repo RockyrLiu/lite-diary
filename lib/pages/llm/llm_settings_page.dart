@@ -118,16 +118,16 @@ class _LlmSettingsPageState extends ConsumerState<LlmSettingsPage> {
               child: const Text('取消'),
             ),
             FilledButton(
-              onPressed: () {
+              onPressed: () async {
                 final url = urlCtrl.text.trim();
                 final key = keyCtrl.text.trim();
                 if (url.isEmpty) return;
-                LlmConfigService.saveConfig(
+                await LlmConfigService.saveConfig(
                   apiUrl: url,
                   apiKey: key,
                   model: modelCtrl.text.trim(),
                 );
-                Navigator.pop(ctx, 'save');
+                if (ctx.mounted) Navigator.pop(ctx, 'save');
               },
               child: const Text('保存'),
             ),
