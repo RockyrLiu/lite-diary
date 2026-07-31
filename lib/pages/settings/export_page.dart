@@ -13,6 +13,7 @@ import '../../database/database.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/encryption_provider.dart';
 import '../../services/crypto_service.dart';
+import '../../services/export_format.dart';
 import '../../services/lunar_calendar.dart';
 
 class ExportPage extends ConsumerStatefulWidget {
@@ -58,7 +59,7 @@ class _ExportPageState extends ConsumerState<ExportPage> {
     final startCtrl = TextEditingController(
         text: '${DateTime.now().year}-01-01');
     final endCtrl = TextEditingController(
-        text: _dateStr(DateTime.now()));
+        text: ExportFormat.dateStr(DateTime.now()));
     bool allTime = false;
     String? errorText;
 
@@ -272,13 +273,13 @@ class _ExportPageState extends ConsumerState<ExportPage> {
     final allEntries = await db.getEntriesByGroup(diaryGroup.id);
     final entries = range.allTime
         ? allEntries
-        : allEntries.where((e) => _inRange(e.date, range)).toList();
+        : allEntries.where((e) => ExportFormat.inRange(e.date, range.start, range.end, range.allTime)).toList();
     if (entries.isEmpty) { _showSnackBar('未找到符合条件的日记', error: true); return; }
     entries.sort((a, b) => a.date.compareTo(b.date));
 
     final tagMap = await db.getEntryTagsMap();
 
-    final nameSuffix = range.allTime ? '全部' : '${_dateStr(range.start)}_${_dateStr(range.end)}';
+    final nameSuffix = range.allTime ? '全部' : '${ExportFormat.dateStr(range.start)}_${ExportFormat.dateStr(range.end)}';
     await _doEntriesZip(entries, tagMap, groups, '日记_$nameSuffix.md');
   }
 
@@ -301,14 +302,14 @@ class _ExportPageState extends ConsumerState<ExportPage> {
     final allEntries = await db.getEntriesByGroup(poetryGroup.id);
     final entries = range.allTime
         ? allEntries
-        : allEntries.where((e) => _inRange(e.date, range)).toList();
+        : allEntries.where((e) => ExportFormat.inRange(e.date, range.start, range.end, range.allTime)).toList();
     if (entries.isEmpty) { _showSnackBar('未找到符合条件的诗稿', error: true); return; }
     entries.sort((a, b) => a.date.compareTo(b.date));
 
     final imageRecords = await _collectImages(entries);
     final firstYear = entries.first.date.year;
     final ganZhiYear = LunarService.ganZhiYear(firstYear);
-    final nameSuffix = range.allTime ? '' : '_${_dateStr(range.start)}_${_dateStr(range.end)}';
+    final nameSuffix = range.allTime ? '' : '_${ExportFormat.dateStr(range.start)}_${ExportFormat.dateStr(range.end)}';
     final fileName = '$ganZhiYear诗稿$nameSuffix.md';
 
     final buffer = StringBuffer();
@@ -353,14 +354,14 @@ class _ExportPageState extends ConsumerState<ExportPage> {
     final allEntries = await db.getEntriesByGroup(group.id);
     final entries = range.allTime
         ? allEntries
-        : allEntries.where((e) => _inRange(e.date, range)).toList();
+        : allEntries.where((e) => ExportFormat.inRange(e.date, range.start, range.end, range.allTime)).toList();
     if (entries.isEmpty) { _showSnackBar('未找到符合条件的"${group.name}"分组日记', error: true); return; }
     entries.sort((a, b) => a.date.compareTo(b.date));
 
     final tagMap = await db.getEntryTagsMap();
     final groups = await db.getAllGroups();
 
-    final nameSuffix = range.allTime ? '全部' : '${_dateStr(range.start)}_${_dateStr(range.end)}';
+    final nameSuffix = range.allTime ? '全部' : '${ExportFormat.dateStr(range.start)}_${ExportFormat.dateStr(range.end)}';
     await _doEntriesZip(entries, tagMap, groups, '${group.name}_$nameSuffix.md');
   }
 
@@ -374,14 +375,14 @@ class _ExportPageState extends ConsumerState<ExportPage> {
     final entries = await db.getAllEntries();
     final filtered = range.allTime
         ? entries
-        : entries.where((e) => _inRange(e.date, range)).toList();
+        : entries.where((e) => ExportFormat.inRange(e.date, range.start, range.end, range.allTime)).toList();
     if (filtered.isEmpty) { _showSnackBar('未找到符合条件的数据', error: true); return; }
     filtered.sort((a, b) => a.date.compareTo(b.date));
 
     final tagMap = await db.getEntryTagsMap();
     final groups = await db.getAllGroups();
 
-    final nameSuffix = range.allTime ? '全部' : '${_dateStr(range.start)}_${_dateStr(range.end)}';
+    final nameSuffix = range.allTime ? '全部' : '${ExportFormat.dateStr(range.start)}_${ExportFormat.dateStr(range.end)}';
     await _doEntriesZip(filtered, tagMap, groups, '全部日记_$nameSuffix.md');
   }
 
@@ -392,54 +393,22 @@ class _ExportPageState extends ConsumerState<ExportPage> {
 
     final groupNameById = {for (final g in groups) g.id: g.name};
 
-    final buffer = StringBuffer();
-    for (var i = 0; i < entries.length; i++) {
-      final entry = entries[i];
-      final dateStr = _dateStr(entry.date);
-      final tags = tagMap[entry.id];
+    final entriesWithResolvedImages = entries.map((entry) {
       final content = _replaceImagePaths(entry.content, imageRecords, entry.id);
-      final groupName = groupNameById[entry.groupId] ?? '';
-      final hash = entry.hash ?? '';
-      final createdAtStr = _dateTimeStr(entry.createdAt);
-      final updatedAtStr = _dateTimeStr(entry.updatedAt);
+      return entry.copyWith(content: content);
+    }).toList();
 
-      buffer.writeln('> date: $dateStr');
-      if (entry.title != null && entry.title!.isNotEmpty) {
-        buffer.writeln('> title: ${entry.title}');
-      }
-      buffer.writeln('> group: $groupName');
-      if (tags != null && tags.isNotEmpty) {
-        buffer.writeln('> tags: ${tags.join(', ')}');
-      }
-      if (entry.weather != null && entry.weather!.isNotEmpty) {
-        buffer.writeln('> weather: ${entry.weather}');
-      }
-      if (entry.location != null && entry.location!.isNotEmpty) {
-        buffer.writeln('> location: ${entry.location}');
-      }
-      buffer.writeln('> created_at: $createdAtStr');
-      buffer.writeln('> updated_at: $updatedAtStr');
-      if (hash.isNotEmpty) {
-        buffer.writeln('> hash: $hash');
-      }
-      buffer.writeln();
-      buffer.writeln(content);
-      buffer.writeln();
-
-      if (i < entries.length - 1) {
-        buffer.writeln('---');
-        buffer.writeln();
-      }
-    }
+    final buffer = StringBuffer();
+    buffer.write(ExportFormat.serializeEntries(entriesWithResolvedImages, tagMap, groupNameById));
 
     final manifestJson = jsonEncode({
       'version': 1,
-      'exported_at': _dateTimeStr(DateTime.now()),
+      'exported_at': ExportFormat.dateTimeStr(DateTime.now()),
       'entries': entries
           .map((e) => {
-                'created_at': _dateTimeStr(e.createdAt),
-                'hash': e.hash ?? _computeHash(e.date, e.content),
-                'updated_at': _dateTimeStr(e.updatedAt),
+                'created_at': ExportFormat.dateTimeStr(e.createdAt),
+                'hash': e.hash ?? ExportFormat.computeHash(e.date, e.content),
+                'updated_at': ExportFormat.dateTimeStr(e.updatedAt),
               })
           .toList()
         ..sort((a, b) =>
@@ -537,24 +506,6 @@ class _ExportPageState extends ConsumerState<ExportPage> {
       }
     }
     return sha256.convert(bytes).toString();
-  }
-
-  bool _inRange(DateTime date, _DateRange range) {
-    if (range.allTime) return true;
-    final d = DateTime(date.year, date.month, date.day);
-    return !d.isBefore(range.start) && !d.isAfter(range.end);
-  }
-
-  String _dateStr(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-
-  String _dateTimeStr(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')} '
-      '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}:${d.second.toString().padLeft(2, '0')}';
-
-  String _computeHash(DateTime date, String content) {
-    final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-    return sha256.convert(utf8.encode('$dateStr|$content')).toString();
   }
 
   @override

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
-const appVersion = '0.2.1';
+const appVersion = '0.2.2';
 
 class AboutPage extends StatelessWidget {
   const AboutPage({super.key});
@@ -14,7 +13,7 @@ class AboutPage extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         children: [
           Center(
-            child: SvgPicture.asset('assets/icon.svg', width: 72, height: 72),
+            child: Image.asset('assets/icon.png', width: 72, height: 72),
           ),
           SizedBox(height: 16),
           Center(

@@ -17,6 +17,7 @@ import '../providers/tag_provider.dart';
 import '../providers/calendar_data_provider.dart';
 import 'crypto_service.dart';
 import 'dav_service.dart';
+import 'export_format.dart';
 
 const _prefKeyDavUri = 'dav_uri';
 const _prefKeyDavUser = 'dav_user';
@@ -105,7 +106,15 @@ class CloudBackupService {
 
     onProgress?.call('正在打包...');
     final tempDir = await Directory.systemTemp.createTemp('cloud_backup_');
-    final mdContent = _buildExportMd(entries, groups, tagMap, imageRecords);
+    final entriesWithResolvedImages = entries.map((e) {
+      var content = e.content;
+      for (final img in imageRecords.where((r) => r.entryId == e.id)) {
+        content = content.replaceAll(img.originalPath, img.destPath);
+      }
+      return e.copyWith(content: content);
+    }).toList();
+    final groupNames = {for (final g in groups) g.id: g.name};
+    final mdContent = ExportFormat.serializeEntries(entriesWithResolvedImages, tagMap, groupNames);
     final mdFile = File('${tempDir.path}/export.md');
     await mdFile.writeAsString(mdContent);
 
@@ -255,7 +264,7 @@ class CloudBackupService {
     Map<String, String> imageFiles,
     void Function(String)? onProgress,
   ) async {
-    final parsed = _parseMd(mdContent);
+    final parsed = ExportFormat.parseEntries(mdContent);
     int imported = 0;
     int skipped = 0;
 
@@ -267,13 +276,13 @@ class CloudBackupService {
     final appDir = await getApplicationDocumentsDirectory();
 
     for (final entryData in parsed) {
-      final date = _parseDate(entryData['date']);
+      final date = ExportFormat.parseDate(entryData['date']);
       if (date == null) { skipped++; continue; }
 
       final hash = entryData['hash'] ?? '';
       final hasCreatedAt = entryData['created_at'] != null && entryData['created_at']!.isNotEmpty;
-      final createdAt = hasCreatedAt ? _parseDateTime(entryData['created_at']) ?? date : null;
-      final updatedAt = _parseDateTime(entryData['updated_at']) ?? date;
+      final createdAt = hasCreatedAt ? ExportFormat.parseDateTime(entryData['created_at']) ?? date : null;
+      final updatedAt = ExportFormat.parseDateTime(entryData['updated_at']) ?? date;
 
       Entry? existing;
       if (hash.isNotEmpty) {
@@ -327,7 +336,7 @@ class CloudBackupService {
         groupId: Value(groupId), weather: Value(entryData['weather']),
         location: Value(entryData['location']), createdAt: Value(effectiveCreatedAt),
         updatedAt: Value(updatedAt),
-        hash: Value((entryData['hash'] ?? '').isEmpty ? _computeHash(date, body) : entryData['hash']!),
+        hash: Value((entryData['hash'] ?? '').isEmpty ? ExportFormat.computeHash(date, body) : entryData['hash']!),
       ));
 
       final tagsStr = entryData['tags'];
@@ -356,9 +365,9 @@ class CloudBackupService {
       'count': entries.length,
       'entries': entries
           .map((e) => {
-                'created_at': _dateTimeStr(e.createdAt),
-                'hash': e.hash ?? _computeHash(e.date, e.content),
-                'updated_at': _dateTimeStr(e.updatedAt),
+                'created_at': ExportFormat.dateTimeStr(e.createdAt),
+                'hash': e.hash ?? ExportFormat.computeHash(e.date, e.content),
+                'updated_at': ExportFormat.dateTimeStr(e.updatedAt),
               })
           .toList()
         ..sort((a, b) => (a['created_at'] as String).compareTo(b['created_at'] as String)),
@@ -369,56 +378,12 @@ class CloudBackupService {
     return sha256.convert(utf8.encode(jsonEncode(json))).toString();
   }
 
-  String _computeHash(DateTime date, String content) {
-    final ds = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-    return sha256.convert(utf8.encode('$ds|$content')).toString();
-  }
-
   Future<void> _saveSyncHash(String hash) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefKeySyncHash, hash);
   }
 
-  // ── Export MD ──
-
-  String _buildExportMd(List<Entry> entries, List<Group> groups,
-      Map<int, List<String>> tagMap, List<_ImageBackup> images) {
-    final groupNames = {for (final g in groups) g.id: g.name};
-    final buf = StringBuffer();
-    for (var i = 0; i < entries.length; i++) {
-      final e = entries[i];
-      var content = e.content;
-      for (final img in images.where((r) => r.entryId == e.id)) {
-        content = content.replaceAll(img.originalPath, img.destPath);
-      }
-      buf.writeln('> date: ${_dateStr(e.date)}');
-      if (e.title != null && e.title!.isNotEmpty) {
-        buf.writeln('> title: ${e.title}');
-      }
-      buf.writeln('> group: ${groupNames[e.groupId] ?? ''}');
-      final tags = tagMap[e.id];
-      if (tags != null && tags.isNotEmpty) {
-        buf.writeln('> tags: ${tags.join(', ')}');
-      }
-      if (e.weather != null && e.weather!.isNotEmpty) {
-        buf.writeln('> weather: ${e.weather}');
-      }
-      if (e.location != null && e.location!.isNotEmpty) {
-        buf.writeln('> location: ${e.location}');
-      }
-      buf.writeln('> created_at: ${_dateTimeStr(e.createdAt)}');
-      buf.writeln('> updated_at: ${_dateTimeStr(e.updatedAt)}');
-      buf.writeln('> hash: ${e.hash ?? _computeHash(e.date, e.content)}');
-      buf.writeln();
-      buf.writeln(content);
-      buf.writeln();
-      if (i < entries.length - 1) {
-        buf.writeln('---');
-        buf.writeln();
-      }
-    }
-    return buf.toString();
-  }
+  // ── Image collection ──
 
   Future<List<_ImageBackup>> _collectImages(List<Entry> entries) async {
     final appDir = await getApplicationDocumentsDirectory();
@@ -434,63 +399,6 @@ class CloudBackupService {
     }
     return records;
   }
-
-  // ── Parse MD ──
-
-  List<Map<String, String>> _parseMd(String content) {
-    final entries = <Map<String, String>>[];
-    final blocks = content.split('\n---\n');
-    for (final block in blocks) {
-      if (block.trim().isEmpty) continue;
-      final lines = block.split('\n');
-      final meta = <String, String>{};
-      final contentLines = <String>[];
-      var inMeta = true;
-      for (final line in lines) {
-        if (inMeta && line.startsWith('> ')) {
-          final rest = line.substring(2);
-          final colonIdx = rest.indexOf(':');
-          if (colonIdx > 0) {
-            meta[rest.substring(0, colonIdx).trim()] = rest.substring(colonIdx + 1).trim();
-          }
-        } else if (inMeta && line.isEmpty) {
-          continue;
-        } else {
-          inMeta = false;
-          contentLines.add(line);
-        }
-      }
-      meta['content'] = contentLines.join('\n').trim();
-      if (meta['date'] != null || meta['content']!.isNotEmpty) {
-        entries.add(meta);
-      }
-    }
-    return entries;
-  }
-
-  DateTime? _parseDate(String? s) {
-    if (s == null || s.isEmpty) return null;
-    final parts = s.split('-');
-    if (parts.length != 3) return null;
-    final y = int.tryParse(parts[0]), m = int.tryParse(parts[1]), d = int.tryParse(parts[2]);
-    if (y == null || m == null || d == null) return null;
-    return DateTime(y, m, d);
-  }
-
-  DateTime? _parseDateTime(String? s) {
-    if (s == null || s.isEmpty) return null;
-    final parts = s.split(' ');
-    final date = _parseDate(parts[0]);
-    if (date == null || parts.length < 2) return date;
-    final timeParts = parts[1].split(':');
-    final h = int.tryParse(timeParts[0]), min = int.tryParse(timeParts[1]);
-    final sec = timeParts.length > 2 ? int.tryParse(timeParts[2]) : null;
-    if (h == null || min == null) return date;
-    return DateTime(date.year, date.month, date.day, h, min, sec ?? 0);
-  }
-
-  String _dateStr(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-  String _dateTimeStr(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')} ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}:${d.second.toString().padLeft(2, '0')}';
 }
 
 class _ImageBackup {

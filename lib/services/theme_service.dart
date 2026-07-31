@@ -18,7 +18,6 @@ class ThemeColors {
     Color(0xFFFF9800),  // 橙色
   ];
 
-  static const presetNames = ['自动', '蓝色', '蓝灰', '绿色', '棕色', '紫色', '粉色', '橙色'];
 }
 
 class AppTheme {

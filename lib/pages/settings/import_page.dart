@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:archive/archive_io.dart';
-import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart' hide isNull, isNotNull, Column;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -17,6 +16,7 @@ import '../../providers/group_provider.dart';
 import '../../providers/tag_provider.dart';
 import '../../providers/calendar_data_provider.dart';
 import '../../services/crypto_service.dart';
+import '../../services/export_format.dart';
 
 class ImportPage extends ConsumerStatefulWidget {
   const ImportPage({super.key});
@@ -96,9 +96,9 @@ class _ImportPageState extends ConsumerState<ImportPage> {
         content = await File(actualPath).readAsString();
       }
 
-      final entries = _parseMarkdown(content);
+      final entries = ExportFormat.parseEntries(content);
       for (final entryData in entries) {
-        final date = _parseDate(entryData['date'] ?? '');
+        final date = ExportFormat.parseDate(entryData['date'] ?? '');
         if (date == null) {
           skippedCount++;
           continue;
@@ -109,8 +109,8 @@ class _ImportPageState extends ConsumerState<ImportPage> {
         final hasCreatedAt = entryData['created_at'] != null &&
             entryData['created_at']!.isNotEmpty;
         final createdAt =
-            hasCreatedAt ? _parseDateTime(entryData['created_at']) ?? date : null;
-        final updatedAt = _parseDateTime(entryData['updated_at']) ?? date;
+            hasCreatedAt ? ExportFormat.parseDateTime(entryData['created_at']) ?? date : null;
+        final updatedAt = ExportFormat.parseDateTime(entryData['updated_at']) ?? date;
 
         // Dedup: hash first (content-unique), created_at as fallback
         Entry? existing;
@@ -130,7 +130,7 @@ class _ImportPageState extends ConsumerState<ImportPage> {
           await db.updateEntry(existing.id, EntriesCompanion(
             title: Value(entryData['title']),
             content: Value(body),
-            hash: Value(hash.isNotEmpty ? hash : _computeHash(date, body)),
+            hash: Value(hash.isNotEmpty ? hash : ExportFormat.computeHash(date, body)),
             updatedAt: Value(updatedAt),
             weather: Value(entryData['weather']),
             location: Value(entryData['location']),
@@ -167,7 +167,7 @@ class _ImportPageState extends ConsumerState<ImportPage> {
           location: Value(location),
           createdAt: Value(effectiveCreatedAt),
           updatedAt: Value(updatedAt),
-          hash: Value(hash.isNotEmpty ? hash : _computeHash(date, processedContent)),
+          hash: Value(hash.isNotEmpty ? hash : ExportFormat.computeHash(date, processedContent)),
         ));
 
         // Attach tags
@@ -256,43 +256,6 @@ class _ImportPageState extends ConsumerState<ImportPage> {
     return mdContent;
   }
 
-  List<Map<String, String>> _parseMarkdown(String content) {
-    final entries = <Map<String, String>>[];
-    final blocks = content.split('\n---\n');
-
-    for (final block in blocks) {
-      if (block.trim().isEmpty) continue;
-      final lines = block.split('\n');
-      final meta = <String, String>{};
-      final contentLines = <String>[];
-      bool inMeta = true;
-
-      for (final line in lines) {
-        if (inMeta && line.startsWith('> ')) {
-          final rest = line.substring(2);
-          final colonIdx = rest.indexOf(':');
-          if (colonIdx > 0) {
-            final key = rest.substring(0, colonIdx).trim();
-            final value = rest.substring(colonIdx + 1).trim();
-            meta[key] = value;
-          }
-        } else if (inMeta && line.isEmpty) {
-          continue;
-        } else {
-          inMeta = false;
-          contentLines.add(line);
-        }
-      }
-
-      meta['content'] = contentLines.join('\n').trim();
-      if (meta['date'] != null || meta['content']!.isNotEmpty) {
-        entries.add(meta);
-      }
-    }
-
-    return entries;
-  }
-
   Future<int> _resolveGroup(String name) async {
     final groups = await db.getAllGroups();
     final existing = groups.where((g) => g.name == name);
@@ -304,35 +267,6 @@ class _ImportPageState extends ConsumerState<ImportPage> {
     final existing = await db.getTagByName(name);
     if (existing != null) return existing.id;
     return await db.createTag(TagsCompanion(name: Value(name)));
-  }
-
-  DateTime? _parseDate(String s) {
-    if (s.isEmpty) return null;
-    final parts = s.split('-');
-    if (parts.length != 3) return null;
-    final y = int.tryParse(parts[0]);
-    final m = int.tryParse(parts[1]);
-    final d = int.tryParse(parts[2]);
-    if (y == null || m == null || d == null) return null;
-    return DateTime(y, m, d);
-  }
-
-  DateTime? _parseDateTime(String? s) {
-    if (s == null || s.isEmpty) return null;
-    final parts = s.split(' ');
-    final date = _parseDate(parts[0]);
-    if (date == null || parts.length < 2) return date;
-    final timeParts = parts[1].split(':');
-    final h = int.tryParse(timeParts[0]);
-    final min = int.tryParse(timeParts[1]);
-    final sec = timeParts.length > 2 ? int.tryParse(timeParts[2]) : null;
-    if (h == null || min == null) return date;
-    return DateTime(date.year, date.month, date.day, h, min, sec ?? 0);
-  }
-
-  String _computeHash(DateTime date, String content) {
-    final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-    return sha256.convert(utf8.encode('$dateStr|$content')).toString();
   }
 
   void _showResult(String message) {

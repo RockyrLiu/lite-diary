@@ -39,14 +39,6 @@ class Images extends Table {
   TextColumn get originalName => text()();
 }
 
-class Settings extends Table {
-  TextColumn get key => text()();
-  TextColumn get value => text()();
-
-  @override
-  Set<Column> get primaryKey => {key};
-}
-
 class Conversations extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get title => text().withDefault(const Constant('新对话'))();

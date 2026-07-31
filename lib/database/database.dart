@@ -8,14 +8,14 @@ import 'tables.dart';
 
 part 'database.g.dart';
 
-@DriftDatabase(tables: [Entries, Groups, Tags, EntryTags, Images, Settings, Conversations, Messages, AnalysisPrompts])
+@DriftDatabase(tables: [Entries, Groups, Tags, EntryTags, Images, Conversations, Messages, AnalysisPrompts])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   AppDatabase.forTesting() : super(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   // ========== Entry ==========
 
@@ -141,17 +141,6 @@ class AppDatabase extends _$AppDatabase {
       map.putIfAbsent(entryId, () => []).add(tagName);
     }
     return map;
-  }
-
-  // ========== Settings ==========
-
-  Future<void> setSetting(String key, String value) {
-    return into(settings).insertOnConflictUpdate(SettingsCompanion(key: Value(key), value: Value(value)));
-  }
-
-  Future<String?> getSetting(String key) {
-    final query = select(settings)..where((s) => s.key.equals(key));
-    return query.map((s) => s.value).getSingleOrNull();
   }
 
   // ========== Init ==========
@@ -291,6 +280,9 @@ class AppDatabase extends _$AppDatabase {
         }
         if (from < 5) {
           await m.addColumn(analysisPrompts, analysisPrompts.isVisible);
+        }
+        if (from < 6) {
+          await customStatement('DROP TABLE IF EXISTS settings');
         }
       },
     );

@@ -1,7 +1,5 @@
 import 'dart:async';
-import 'dart:convert';
 
-import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' hide isNull, isNotNull, Column;
@@ -18,6 +16,7 @@ import '../../widgets/markdown_editor.dart';
 import '../../widgets/tag_editor.dart';
 import '../../services/image_service.dart';
 import '../../services/navigation_state.dart';
+import '../../services/export_format.dart';
 import '../../services/rendering_settings.dart';
 
 class ContentPage extends ConsumerStatefulWidget {
@@ -60,10 +59,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
     return null;
   }
 
-  String _computeHash(DateTime date, String content) {
-    final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-    return sha256.convert(utf8.encode('$dateStr|$content')).toString();
-  }
+  String _computeHash(DateTime date, String content) => ExportFormat.computeHash(date, content);
 
   @override
   void initState() {
@@ -607,8 +603,7 @@ class _ContentPageState extends ConsumerState<ContentPage> with WidgetsBindingOb
     return d.year == now.year && d.month == now.month && d.day == now.day;
   }
 
-  String _dateStr(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  String _dateStr(DateTime d) => ExportFormat.dateStr(d);
 
   bool _parseDate(String s) {
     final parts = s.split('-');
