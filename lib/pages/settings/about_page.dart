@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
@@ -22,8 +23,10 @@ class _AboutPageState extends State<AboutPage> {
   String? _buildNumber;
   bool _checking = false;
 
-  /// 注入值恰好等于语义化版本标签（如 v0.3.1）时为正式版，否则为 preview。
+  /// 调试构建一定不是正式版，直接视为 preview；
+  /// 发布构建依据注入的 git describe：恰好等于语义化版本标签时为正式版，否则为 preview。
   bool get _isPreview {
+    if (kDebugMode) return true;
     if (_gitDescribe.isEmpty) return false;
     return !RegExp(r'^v?\d+\.\d+\.\d+$').hasMatch(_gitDescribe);
   }
@@ -33,6 +36,9 @@ class _AboutPageState extends State<AboutPage> {
     if (m != null) return m.group(1);
     return _gitDescribe.isEmpty ? null : _gitDescribe;
   }
+
+  /// preview 徽标中的标识：debug 构建显示 debug，注入过 git 标识时显示短哈希。
+  String get _previewTag => _gitDescribe.isEmpty ? 'debug' : (_shortHash ?? '');
 
   @override
   void initState() {
@@ -201,7 +207,7 @@ class _AboutPageState extends State<AboutPage> {
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  'preview（build ${_buildNumber ?? '?'} · ${_shortHash ?? ''}）',
+                  'preview（build ${_buildNumber ?? '?'} · $_previewTag）',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
