@@ -286,23 +286,19 @@ class _MoodSuggestionOverviewPageState
       return;
     }
     final moodSvc = MoodScoreService(ref.read(databaseProvider));
-    final now = DateTime.now();
-    final start = DateTime(
-      now.year,
-      now.month,
-      now.day,
-    ).subtract(const Duration(days: 29));
     final unscored = await moodSvc.getUnscoredDays();
-    final inRange = unscored.where((d) => !d.isBefore(start)).toList();
-    if (inRange.isEmpty) {
-      _snack('近 30 天没有待打分的日期');
+    if (!mounted) return;
+    if (unscored.isEmpty) {
+      _snack('没有待打分的日期');
       return;
     }
+    if (!await confirmBackfillScoring(context, unscored.length)) return;
+    if (!mounted) return;
     setState(() => _updatingMood = true);
     try {
-      await moodSvc.scoreDays(svc, inRange);
+      await moodSvc.scoreDays(svc, unscored);
       await _load();
-      _snack('已补算近 30 天情绪打分');
+      _snack('已补算全部情绪打分');
     } catch (e) {
       _snack('打分失败: $e');
     } finally {

@@ -300,6 +300,7 @@ class CloudBackupService {
           updatedAt: Value(updatedAt),
           weather: Value(entryData['weather']),
           location: Value(entryData['location']),
+          moodScore: const Value(null),
         ));
         imported++; continue;
       }

@@ -134,6 +134,7 @@ class _ImportPageState extends ConsumerState<ImportPage> {
             updatedAt: Value(updatedAt),
             weather: Value(entryData['weather']),
             location: Value(entryData['location']),
+            moodScore: const Value(null),
           ));
           importedCount++;
           continue;

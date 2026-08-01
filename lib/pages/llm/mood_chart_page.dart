@@ -7,9 +7,36 @@ import '../../services/mood_service.dart';
 import '../../widgets/mood_curve_chart.dart';
 import '../../widgets/mood_heatmap.dart';
 
-enum _MoodRange { week, month, year, all }
+enum _MoodRange { week, month, year }
 
 enum _MoodView { curve, heatmap }
+
+/// 全量补算打分前确认；天数超过 [confirmThreshold] 时弹窗询问。
+Future<bool> confirmBackfillScoring(
+  BuildContext context,
+  int days, {
+  int confirmThreshold = 20,
+}) async {
+  if (days <= confirmThreshold) return true;
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('补算情绪打分'),
+      content: Text('将对 $days 天的内容进行情绪打分，预计多次调用 AI，是否继续？'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('继续'),
+        ),
+      ],
+    ),
+  );
+  return ok ?? false;
+}
 
 class MoodChartPage extends ConsumerStatefulWidget {
   const MoodChartPage({super.key});
@@ -43,7 +70,6 @@ class _MoodChartPageState extends ConsumerState<MoodChartPage> {
       _MoodRange.week => today.subtract(const Duration(days: 6)),
       _MoodRange.month => today.subtract(const Duration(days: 29)),
       _MoodRange.year => today.subtract(const Duration(days: 364)),
-      _MoodRange.all => DateTime(2000, 1, 1),
     };
   }
 
@@ -120,13 +146,14 @@ class _MoodChartPageState extends ConsumerState<MoodChartPage> {
       return;
     }
     final svc = MoodScoreService(ref.read(databaseProvider));
-    final start = _startOf(_range);
-    final allUnscored = await svc.getUnscoredDays();
-    final inRange = allUnscored.where((d) => !d.isBefore(start)).toList();
-    if (inRange.isEmpty) {
-      setState(() => _error = '所选范围内没有待打分的日期');
+    final unscored = await svc.getUnscoredDays();
+    if (!mounted) return;
+    if (unscored.isEmpty) {
+      setState(() => _error = '没有待打分的日期');
       return;
     }
+    if (!await confirmBackfillScoring(context, unscored.length)) return;
+    if (!mounted) return;
     setState(() {
       _scoring = true;
       _error = null;
@@ -134,7 +161,7 @@ class _MoodChartPageState extends ConsumerState<MoodChartPage> {
     try {
       await svc.scoreDays(
         llm,
-        inRange,
+        unscored,
         onProgress: (done, total) {
           if (!mounted) return;
           setState(() => _scorePhase = '正在打分 ($done/$total)...');
@@ -274,7 +301,6 @@ class _MoodChartPageState extends ConsumerState<MoodChartPage> {
                     (_MoodRange.week, '近一周'),
                     (_MoodRange.month, '近一月'),
                     (_MoodRange.year, '近一年'),
-                    (_MoodRange.all, '全部'),
                   ])
                     ChoiceChip(
                       label: Text(label),

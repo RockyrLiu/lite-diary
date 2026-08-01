@@ -1,7 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
-/// 情绪曲线图：只连接有数据的点，无数据日期断开。
+/// 情绪曲线图：跨无数据日期连接所有有分点，形成连续平滑曲线。
 class MoodCurveChart extends StatelessWidget {
   final List<(DateTime, double?)> data;
   final double height;
@@ -17,9 +17,12 @@ class MoodCurveChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = Theme.of(context).colorScheme.primary;
-    final runs = _contiguousRuns();
+    final spots = <FlSpot>[
+      for (var i = 0; i < data.length; i++)
+        if (data[i].$2 != null) FlSpot(i.toDouble(), data[i].$2!),
+    ];
 
-    if (runs.isEmpty) {
+    if (spots.isEmpty) {
       return SizedBox(
         height: height,
         child: Center(
@@ -33,21 +36,19 @@ class MoodCurveChart extends StatelessWidget {
       );
     }
 
-    final barData = runs.map((run) {
-      return LineChartBarData(
-        spots: [for (final (x, y) in run) FlSpot(x.toDouble(), y)],
-        isCurved: true,
-        preventCurveOverShooting: true,
-        color: color,
-        barWidth: 2.5,
-        isStrokeCapRound: true,
-        dotData: const FlDotData(show: false),
-        belowBarData: BarAreaData(
-          show: true,
-          color: color.withValues(alpha: 0.10),
-        ),
-      );
-    }).toList();
+    final barData = LineChartBarData(
+      spots: spots,
+      isCurved: true,
+      preventCurveOverShooting: true,
+      color: color,
+      barWidth: 2.5,
+      isStrokeCapRound: true,
+      dotData: FlDotData(show: spots.length == 1),
+      belowBarData: BarAreaData(
+        show: true,
+        color: color.withValues(alpha: 0.10),
+      ),
+    );
 
     return SizedBox(
       height: height,
@@ -115,7 +116,7 @@ class MoodCurveChart extends StatelessWidget {
                   ),
                 )
               : const FlTitlesData(show: false),
-          lineBarsData: barData,
+          lineBarsData: [barData],
         ),
       ),
     );
@@ -126,24 +127,5 @@ class MoodCurveChart extends StatelessWidget {
     if (n <= 7) return 1;
     if (n <= 31) return (n / 5).ceilToDouble();
     return (n / 8).ceilToDouble();
-  }
-
-  List<List<(int, double)>> _contiguousRuns() {
-    final runs = <List<(int, double)>>[];
-    List<(int, double)>? current;
-    for (var i = 0; i < data.length; i++) {
-      final v = data[i].$2;
-      if (v == null) {
-        current = null;
-        continue;
-      }
-      if (current == null) {
-        current = [(i, v)];
-        runs.add(current);
-      } else {
-        current.add((i, v));
-      }
-    }
-    return runs;
   }
 }
