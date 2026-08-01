@@ -30,7 +30,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting() : super(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 1;
 
   // ========== Entry ==========
 
@@ -433,76 +433,8 @@ class AppDatabase extends _$AppDatabase {
         await insertDefaultAnalysisPrompts();
       },
       onUpgrade: (m, from, to) async {
-        if (from < 3) {
-          await m.createTable(conversations);
-          await m.createTable(messages);
-          await m.createTable(analysisPrompts);
-          await insertDefaultAnalysisPrompts();
-        }
-        if (from < 4) {
-          await customStatement('DELETE FROM analysis_prompts');
-          await insertDefaultAnalysisPrompts();
-        }
-        if (from < 5) {
-          await m.addColumn(analysisPrompts, analysisPrompts.isVisible);
-        }
-        if (from < 6) {
-          await customStatement('DROP TABLE IF EXISTS settings');
-        }
-        if (from < 7) {
-          await customStatement(
-            "DELETE FROM analysis_prompts WHERE name = '写作建议'",
-          );
-          await customStatement(
-            "UPDATE analysis_prompts SET name = '内容摘要' WHERE name = '今日摘要'",
-          );
-          await customStatement(
-            "UPDATE analysis_prompts SET name = '本周回顾' WHERE name = '每周回顾'",
-          );
-        }
-        if (from < 8) {
-          await customStatement(
-            "UPDATE analysis_prompts SET prompt_template = REPLACE(prompt_template, '\n\n{entries}', '')",
-          );
-          await customStatement(
-            "UPDATE analysis_prompts SET prompt_template = REPLACE(prompt_template, '{entries}', '')",
-          );
-        }
-        if (from < 9) {
-          await m.addColumn(entries, entries.moodScore);
-          await m.createTable(periodSummaries);
-          await m.createTable(portraits);
-          await m.createTable(reviews);
-          await customStatement(
-            "DELETE FROM analysis_prompts WHERE name = '情绪分析'",
-          );
-          await customStatement(
-            "DELETE FROM analysis_prompts WHERE name = '本周回顾'",
-          );
-        }
-        if (from < 10) {
-          await m.createTable(usageLogs);
-          final oldReviews = await customSelect(
-            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'weekly_reviews'",
-          ).get();
-          if (oldReviews.isNotEmpty) {
-            if (from >= 9) {
-              await m.createTable(reviews);
-            }
-            await customStatement(
-              "INSERT INTO reviews (kind, period_start, period_end, content, generated_at) "
-              "SELECT 'week', period_start, period_end, content, generated_at FROM weekly_reviews",
-            );
-            await customStatement('DROP TABLE IF EXISTS weekly_reviews');
-          }
-        }
-        if (from < 11) {
-          await m.addColumn(usageLogs, usageLogs.promptCacheHitTokens);
-          await m.addColumn(usageLogs, usageLogs.promptCacheMissTokens);
-        }
-        if (from < 12) {
-          await m.addColumn(portraits, portraits.summary);
-        }
+        // 未发行版本：无历史迁移。未来 schema 变更从版本 2 开始，如：
+        // if (from < 2) { ... }
       },
     );
   }

@@ -206,41 +206,35 @@ class _ProfileOverviewPageState extends ConsumerState<_ProfileOverviewPage>
     }
     return RefreshIndicator(
       onRefresh: _load,
-      child: Column(
+      child: ListView(
+        padding: const EdgeInsets.all(12),
         children: [
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
-              child: _OverviewCard(
-                icon: Icons.face_retouching_natural,
-                title: '个人画像',
-                content: _brief(_longTerm),
-                updatedAt: _longTerm?.generatedAt,
-                note: _portraitNote(),
-                updating: _updatingPortrait,
-                onUpdate: _updatePortrait,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const PortraitPage()),
-                ),
-              ),
+          _OverviewCard(
+            icon: Icons.face_retouching_natural,
+            title: '个人画像',
+            content: _brief(_longTerm),
+            maxLines: 12,
+            updatedAt: _longTerm?.generatedAt,
+            note: _portraitNote(),
+            updating: _updatingPortrait,
+            onUpdate: _updatePortrait,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const PortraitPage()),
             ),
           ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
-              child: _OverviewCard(
-                icon: Icons.wb_twilight,
-                title: '近期状态',
-                content: _brief(_recent),
-                updatedAt: _recent?.generatedAt,
-                updating: _updatingRecent,
-                onUpdate: _updateRecent,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const RecentStatePage()),
-                ),
-              ),
+          const SizedBox(height: 12),
+          _OverviewCard(
+            icon: Icons.wb_twilight,
+            title: '近期状态',
+            content: _brief(_recent),
+            maxLines: 12,
+            updatedAt: _recent?.generatedAt,
+            updating: _updatingRecent,
+            onUpdate: _updateRecent,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const RecentStatePage()),
             ),
           ),
         ],

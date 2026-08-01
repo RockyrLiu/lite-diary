@@ -52,6 +52,7 @@ class _ContentPageState extends ConsumerState<ContentPage>
   String? _modifiedTime;
   String _weather = '';
   String _location = '';
+  bool _metaManuallyEdited = false;
   final List<String> _pendingTags = [];
   bool _isSaving = false;
 
@@ -196,7 +197,9 @@ class _ContentPageState extends ConsumerState<ContentPage>
           _loadCurrentEntry();
         }
       }
-      _hasUnsavedChanges = false;
+      _hasUnsavedChanges =
+          _editingEntryId == null &&
+          (_weather.isNotEmpty || _location.isNotEmpty);
       _isSaving = false;
       ref.invalidate(entriesByDateProvider(_currentDate));
       ref.invalidate(allEntriesProvider);
@@ -300,6 +303,7 @@ class _ContentPageState extends ConsumerState<ContentPage>
       _modifiedTime = _timeStr(entry.updatedAt);
       _weather = entry.weather ?? '';
       _location = entry.location ?? '';
+      _metaManuallyEdited = false;
     } else {
       _contentController.clear();
       _editingEntryId = null;
@@ -309,6 +313,7 @@ class _ContentPageState extends ConsumerState<ContentPage>
       _modifiedTime = null;
       _weather = '';
       _location = '';
+      _metaManuallyEdited = false;
     }
   }
 
@@ -410,10 +415,12 @@ class _ContentPageState extends ConsumerState<ContentPage>
       _editingEntryId = null;
       _currentGroupId = _diaryGroupId;
       _hasUnsavedChanges = false;
+      _editorMode = EditorMode.source;
     });
     _pendingTags.clear();
     _weather = '';
     _location = '';
+    _metaManuallyEdited = false;
     _autoLocate();
   }
 
@@ -477,10 +484,39 @@ class _ContentPageState extends ConsumerState<ContentPage>
   }
 
   Future<void> _autoLocate() async {
+    final targetId = _editingEntryId;
     final loc = await _fetchLocation();
-    if (loc.isNotEmpty && mounted) {
+    if (loc.isEmpty || !mounted || _metaManuallyEdited) return;
+    if (targetId != null) {
+      final ok = await db.updateEntry(
+        targetId,
+        EntriesCompanion(
+          location: Value(loc),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+      if (ok && targetId == _editingEntryId && mounted) {
+        setState(() => _location = loc);
+      } else if (!ok) {
+        _showMetaSaveFailed();
+      }
+    } else {
       setState(() => _location = loc);
+      _scheduleSave();
     }
+  }
+
+  void _showMetaSaveFailed() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: const Text('天气/地点保存失败，条目可能已变更，请重试'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+          duration: const Duration(seconds: 2),
+        ),
+      );
   }
 
   void _editMeta() {
@@ -554,6 +590,7 @@ class _ContentPageState extends ConsumerState<ContentPage>
                   _weather = w;
                   _location = l;
                 });
+                _metaManuallyEdited = true;
                 // 同步更新内存中的条目对象，防止 loadCurrentEntry 覆盖
                 if (_editingEntryId != null &&
                     _currentEntries.isNotEmpty &&
@@ -570,7 +607,7 @@ class _ContentPageState extends ConsumerState<ContentPage>
                 }
                 if (_editingEntryId != null) {
                   final now = DateTime.now();
-                  await db.updateEntry(
+                  final ok = await db.updateEntry(
                     _editingEntryId!,
                     EntriesCompanion(
                       weather: Value(w.isEmpty ? null : w),
@@ -578,9 +615,10 @@ class _ContentPageState extends ConsumerState<ContentPage>
                       updatedAt: Value(now),
                     ),
                   );
+                  if (!ok) _showMetaSaveFailed();
                   _modifiedTime = _timeStr(now);
                 } else {
-                  _hasUnsavedChanges = true;
+                  _scheduleSave();
                 }
               }
             },
