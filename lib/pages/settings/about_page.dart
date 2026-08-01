@@ -61,11 +61,13 @@ class _AboutPageState extends State<AboutPage> {
   /// 比较 GitHub tag（如 v0.3.1）与当前版本号，返回远端是否更新。
   bool _isNewer(String tag, String current) {
     List<int> parse(String s) {
-      final parts = s
-          .replaceFirst(RegExp(r'^v'), '')
-          .split('.')
-          .map((e) => int.tryParse(e) ?? 0)
-          .toList();
+    final parts = s
+        .replaceFirst(RegExp(r'^v'), '')
+        .split('-')
+        .first
+        .split('.')
+        .map((e) => int.tryParse(e) ?? 0)
+        .toList();
       while (parts.length < 3) {
         parts.add(0);
       }
