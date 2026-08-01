@@ -24,6 +24,7 @@ class _MoodChartPageState extends ConsumerState<MoodChartPage> {
   DateTime? _focusStart;
   List<(DateTime, double?)> _curve = [];
   List<(DateTime, double?)> _yearData = [];
+  int _heatmapYear = DateTime.now().year;
   bool _loading = true;
   bool _scoring = false;
   String? _scorePhase;
@@ -74,8 +75,7 @@ class _MoodChartPageState extends ConsumerState<MoodChartPage> {
   }
 
   Future<void> _loadYearHeatmap() async {
-    final now = DateTime.now();
-    final year = now.year;
+    final year = _heatmapYear;
     final svc = MoodScoreService(ref.read(databaseProvider));
     final data = await svc.dailyMoodCurve(
       DateTime(year, 1, 1),
@@ -83,6 +83,19 @@ class _MoodChartPageState extends ConsumerState<MoodChartPage> {
     );
     if (!mounted) return;
     setState(() => _yearData = data);
+  }
+
+  void _switchYear(int delta) {
+    final current = DateTime.now().year;
+    final target = _heatmapYear + delta;
+    if (target > current) return;
+    setState(() {
+      _heatmapYear = target;
+      _loading = true;
+    });
+    _loadYearHeatmap().then((_) {
+      if (mounted) setState(() => _loading = false);
+    });
   }
 
   void _switchView(_MoodView view) {
@@ -357,28 +370,98 @@ class _MoodChartPageState extends ConsumerState<MoodChartPage> {
                       ),
               ),
             ),
-          ] else
+          ] else ...[
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: _loading
                     ? const Center(child: CircularProgressIndicator())
                     : SingleChildScrollView(
-                        child: MoodHeatmap(
-                          data: _yearData,
-                          onDayTap: _onHeatmapTap,
-                          onMonthTap: (date) {
-                            setState(() {
-                              _focusStart = DateTime(date.year, date.month, 1);
-                              _view = _MoodView.curve;
-                              _loading = true;
-                            });
-                            _load();
-                          },
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.chevron_left,
+                                    size: 22,
+                                  ),
+                                  tooltip: '上一年',
+                                  visualDensity: VisualDensity.compact,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 32,
+                                    minHeight: 32,
+                                  ),
+                                  padding: EdgeInsets.zero,
+                                  onPressed: () => _switchYear(-1),
+                                ),
+                                Text(
+                                  '$_heatmapYear 年',
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.chevron_right,
+                                    size: 22,
+                                  ),
+                                  tooltip: '下一年',
+                                  visualDensity: VisualDensity.compact,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 32,
+                                    minHeight: 32,
+                                  ),
+                                  padding: EdgeInsets.zero,
+                                  onPressed: _heatmapYear >=
+                                          DateTime.now().year
+                                      ? null
+                                      : () => _switchYear(1),
+                                ),
+                                if (_heatmapYear != DateTime.now().year)
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.today,
+                                      size: 22,
+                                    ),
+                                    tooltip: '回到今年',
+                                    visualDensity: VisualDensity.compact,
+                                    constraints: const BoxConstraints(
+                                      minWidth: 32,
+                                      minHeight: 32,
+                                    ),
+                                    padding: EdgeInsets.zero,
+                                    onPressed: () => _switchYear(
+                                      DateTime.now().year - _heatmapYear,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            MoodHeatmap(
+                              data: _yearData,
+                              onDayTap: _onHeatmapTap,
+                              onMonthTap: (date) {
+                                setState(() {
+                                  _focusStart = DateTime(
+                                    date.year,
+                                    date.month,
+                                    1,
+                                  );
+                                  _view = _MoodView.curve;
+                                  _loading = true;
+                                });
+                                _load();
+                              },
+                            ),
+                          ],
                         ),
                       ),
               ),
             ),
+          ],
         ],
       ),
     );
