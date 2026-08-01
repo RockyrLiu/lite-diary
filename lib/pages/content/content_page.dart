@@ -1304,11 +1304,13 @@ class _ContentPageState extends ConsumerState<ContentPage>
           _buildStatusBar(),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _startNewEntry,
-        tooltip: '补记',
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: _editorMode == EditorMode.source
+          ? null
+          : FloatingActionButton(
+              onPressed: _startNewEntry,
+              tooltip: '补记',
+              child: const Icon(Icons.add),
+            ),
     );
   }
 }
