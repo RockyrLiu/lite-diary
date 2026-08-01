@@ -96,7 +96,7 @@ class _SuggestionPageState extends ConsumerState<SuggestionPage> {
                 padding: const EdgeInsets.all(16),
                 child: SelectableText(
                   _suggestion!,
-                  style: const TextStyle(height: 1.6),
+                  style: const TextStyle(fontSize: 16, height: 1.6),
                 ),
               ),
             ),

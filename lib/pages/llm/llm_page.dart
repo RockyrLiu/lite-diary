@@ -501,7 +501,7 @@ class _OverviewCard extends StatelessWidget {
                   child: Text(
                     '尚未生成，点击查看',
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 15,
                       color: scheme.onSurfaceVariant,
                     ),
                   ),
@@ -512,7 +512,7 @@ class _OverviewCard extends StatelessWidget {
                   maxLines: maxLines,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 16,
                     height: 1.6,
                     color: scheme.onSurface,
                   ),

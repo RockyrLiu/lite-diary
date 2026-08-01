@@ -160,7 +160,7 @@ class _PortraitPageState extends ConsumerState<PortraitPage> {
                       padding: const EdgeInsets.all(16),
                       child: SelectableText(
                         _portrait!.content,
-                        style: const TextStyle(height: 1.6),
+                        style: const TextStyle(fontSize: 16, height: 1.6),
                       ),
                     ),
                   ),
