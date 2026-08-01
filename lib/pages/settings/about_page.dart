@@ -20,7 +20,6 @@ class _AboutPageState extends State<AboutPage> {
   static const _gitDescribe = String.fromEnvironment('GIT_DESCRIBE');
 
   String? _version;
-  String? _buildNumber;
   bool _checking = false;
 
   /// 调试构建一定不是正式版，直接视为 preview；
@@ -56,7 +55,6 @@ class _AboutPageState extends State<AboutPage> {
     );
     setState(() {
       _version = version;
-      _buildNumber = info.buildNumber;
     });
   }
 
@@ -207,7 +205,7 @@ class _AboutPageState extends State<AboutPage> {
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  'preview（build ${_buildNumber ?? '?'} · $_previewTag）',
+                  'preview($_previewTag)',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
