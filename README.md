@@ -38,19 +38,23 @@
 
 ## 分支与版本约定
 
-- **main** — 稳定发布版（当前 v0.3.1），对应 GitHub Release 标签
-- **dev** — 最新功能（未经充分测试，可能存在未知问题）：`git checkout dev` 后自行构建；从 dev 构建的应用关于页带有 **preview** 标识
+- **main** — 稳定发布版，对应 GitHub Release 标签（如 v0.3.1）
+- **dev** — 最新功能（未经充分测试，可能存在未知问题）：`git checkout dev` 后自行构建
 
-**版本约定**：每次发布正式版后，dev 分支立即将版本号升至下一个版本（如发布 v0.3.1 后 dev 为 0.3.2+17）。因此 dev 构建的版本号始终高于已发布版本，可据此区分构建。
+**版本约定**：每次发布正式版后，dev 分支立即将版本号升至下一个版本（如发布 v0.3.1 后 dev 为 0.3.2+17）。因此 dev 构建的版本号始终高于已发布版本，可据此区分构建；preview 构建不再递增 buildNumber，而是由 `build_apk.sh` 注入 git 标识，关于页显示 **preview** 徽标并标明构建来源提交（如 `preview(ef6529f)`），精确反映构建状态。
 
-## 运行
+## 运行与构建
+
+仓库代码通常领先于发布版本（发布节奏较慢，功能未经充分测试）。如需使用最新功能，请自行构建：
 
 ```bash
 flutter pub get
 dart run build_runner build    # 生成 drift / riverpod 代码
-flutter run                     # 运行到已连接设备
-flutter build apk --release     # 构建发布 APK
+flutter run                     # 运行到已连接设备（调试）
+./build_apk.sh                  # 构建发布 APK（产物在 build/app/outputs/flutter-apk/）
 ```
+
+`build_apk.sh` 会注入 git 标识：在标签提交上构建为正式版，其余提交（如 dev 分支）构建的应用关于页带有 **preview** 标识。为保证徽标中的提交短哈希与实际构建状态一致，工作区存在未提交改动时脚本会直接报错，请先提交再构建。
 
 ## 技术栈
 
