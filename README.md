@@ -36,13 +36,15 @@
 - **加密** — AES-GCM 加密导出/备份，保护隐私数据
 - **云端备份** — WebDAV 备份与恢复
 
-## 运行
+## 运行与构建
+
+仓库代码通常领先于发布版本（发布节奏较慢，功能未经充分测试）。如需使用最新功能，请自行构建：
 
 ```bash
 flutter pub get
 dart run build_runner build    # 生成 drift / riverpod 代码
-flutter run                     # 运行到已连接设备
-flutter build apk --release     # 构建发布 APK
+flutter run                     # 运行到已连接设备（调试）
+flutter build apk --release     # 构建发布 APK（产物在 build/app/outputs/flutter-apk/）
 ```
 
 ## 技术栈
