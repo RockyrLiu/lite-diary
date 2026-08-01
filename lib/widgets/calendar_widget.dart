@@ -132,8 +132,11 @@ class _MonthCalendarWidgetState extends State<MonthCalendarWidget> {
       final dateKey = DateTime(date.year, date.month, date.day);
       final count = widget.data.countForDate(date);
       final isToday = dateKey == todayKey;
+      final isFuture = dateKey.isAfter(todayKey);
       currentRow.add(Expanded(child: GestureDetector(
-        onTap: widget.onDateTap != null ? () => widget.onDateTap!(date) : null,
+        onTap: widget.onDateTap != null && !isFuture
+            ? () => widget.onDateTap!(date)
+            : null,
         child: Container(
           margin: const EdgeInsets.all(2),
           decoration: BoxDecoration(
@@ -142,7 +145,11 @@ class _MonthCalendarWidgetState extends State<MonthCalendarWidget> {
             border: isToday ? Border.all(color: colorScheme.primary.withValues(alpha: 0.47)) : null,
           ),
           child: Column(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
-            Text('$day', style: TextStyle(fontSize: 18, fontWeight: isToday ? FontWeight.bold : null)),
+            Text('$day', style: TextStyle(
+              fontSize: 18,
+              fontWeight: isToday ? FontWeight.bold : null,
+              color: isFuture ? colorScheme.onSurface.withValues(alpha: 0.3) : null,
+            )),
             Text(LunarService.lunarDayShort(date), style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant), maxLines: 1, overflow: TextOverflow.ellipsis),
             if (count > 0) Container(width: 6, height: 6, decoration: BoxDecoration(color: colorScheme.primary, shape: BoxShape.circle)),
           ]),

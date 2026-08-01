@@ -1036,6 +1036,18 @@ class _ContentPageState extends ConsumerState<ContentPage>
                   setDialogState(() => errorText = '日期格式错误，请使用 yyyy-MM-dd');
                   return;
                 }
+                final parts = text.split('-');
+                final target = DateTime(
+                  int.parse(parts[0]),
+                  int.parse(parts[1]),
+                  int.parse(parts[2]),
+                );
+                final today = DateTime.now();
+                final todayKey = DateTime(today.year, today.month, today.day);
+                if (target.isAfter(todayKey)) {
+                  setDialogState(() => errorText = '不能跳转到今天以后的日期');
+                  return;
+                }
                 Navigator.pop(ctx, text);
               },
               child: const Text('确定'),

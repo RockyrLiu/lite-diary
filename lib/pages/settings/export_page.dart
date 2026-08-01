@@ -52,7 +52,7 @@ class _ExportPageState extends ConsumerState<ExportPage> {
 
   // ── Date range dialog ──
 
-  Future<_DateRange?> _pickDateRange() async {
+  Future<_DateRange?> _pickDateRange({bool defaultAllTime = false}) async {
     if (mounted) {
       ScaffoldMessenger.of(context).clearSnackBars();
     }
@@ -60,7 +60,7 @@ class _ExportPageState extends ConsumerState<ExportPage> {
         text: '${DateTime.now().year}-01-01');
     final endCtrl = TextEditingController(
         text: ExportFormat.dateStr(DateTime.now()));
-    bool allTime = false;
+    bool allTime = defaultAllTime;
     String? errorText;
 
     bool parseDate(String s) {
@@ -368,7 +368,7 @@ class _ExportPageState extends ConsumerState<ExportPage> {
   // ── Export: 所有数据 ──
 
   Future<void> _exportAll() async {
-    final range = await _pickDateRange();
+    final range = await _pickDateRange(defaultAllTime: true);
     if (range == null) return;
 
     final db = ref.read(databaseProvider);
