@@ -49,7 +49,7 @@ class _ContentPageState extends ConsumerState<ContentPage>
   EditorMode _editorMode = EditorMode.preview;
   bool _hasUnsavedChanges = false;
   bool _slideForward = true;
-  String? _modifiedTime;
+  String? _entryTime;
   String _weather = '';
   String _location = '';
   bool _metaManuallyEdited = false;
@@ -250,13 +250,13 @@ class _ContentPageState extends ConsumerState<ContentPage>
             _currentEntryIndex = newIndex >= 0
                 ? newIndex
                 : refreshedEntries.length - 1;
+            _entryTime = _timeStr(now);
           });
         }
       }
       await _attachPendingTags(newId);
     }
     _hasUnsavedChanges = false;
-    _modifiedTime = _timeStr(now);
     _isSaving = false;
     ref.invalidate(entriesByDateProvider(_currentDate));
     ref.invalidate(allEntriesProvider);
@@ -300,7 +300,7 @@ class _ContentPageState extends ConsumerState<ContentPage>
       _editingEntryId = entry.id;
       _currentGroupId = entry.groupId;
       _hasUnsavedChanges = false;
-      _modifiedTime = _timeStr(entry.updatedAt);
+      _entryTime = _timeStr(entry.createdAt);
       _weather = entry.weather ?? '';
       _location = entry.location ?? '';
       _metaManuallyEdited = false;
@@ -310,7 +310,7 @@ class _ContentPageState extends ConsumerState<ContentPage>
       _currentGroupId = _diaryGroupId;
       _hasUnsavedChanges = false;
       _pendingTags.clear();
-      _modifiedTime = null;
+      _entryTime = null;
       _weather = '';
       _location = '';
       _metaManuallyEdited = false;
@@ -388,24 +388,118 @@ class _ContentPageState extends ConsumerState<ContentPage>
     if (prevDate != _currentDate) await _goToDate(prevDate, false);
   }
 
-  Future<void> _goToNextEntry() async {
+  /// 当日多篇时：底部弹出条目列表（标题 + 创建时间），点选切换。
+  Future<void> _showEntryList() async {
     await _saveNow();
-    if (_currentEntryIndex < _currentEntries.length - 1) {
-      setState(() {
-        _currentEntryIndex++;
-        _loadCurrentEntry();
-      });
-    }
+    if (!mounted) return;
+    final entries = _currentEntries;
+    final selected = await showModalBottomSheet<int>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text(
+                '当日条目（${entries.length}）',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            for (var i = 0; i < entries.length; i++)
+              ListTile(
+                leading: Icon(
+                  i == _currentEntryIndex
+                      ? Icons.check_circle
+                      : Icons.circle_outlined,
+                  size: 20,
+                  color: i == _currentEntryIndex
+                      ? Theme.of(ctx).colorScheme.primary
+                      : null,
+                ),
+                title: Text(
+                  entries[i].title?.isNotEmpty == true
+                      ? entries[i].title!
+                      : '无标题',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text(
+                  _timeStr(entries[i].createdAt),
+                  style: const TextStyle(fontSize: 12),
+                ),
+                onTap: () => Navigator.pop(ctx, i),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || selected == null || selected == _currentEntryIndex) return;
+    setState(() {
+      _currentEntryIndex = selected;
+      _loadCurrentEntry();
+    });
   }
 
-  Future<void> _goToPreviousEntry() async {
-    await _saveNow();
-    if (_currentEntryIndex > 0) {
-      setState(() {
-        _currentEntryIndex--;
-        _loadCurrentEntry();
-      });
+  /// 查看当前条目的元数据：创建/修改时间、ID、分组、天气/地点、哈希。
+  Future<void> _showMetadata() async {
+    final entry = _currentEntryIndex < _currentEntries.length
+        ? _currentEntries[_currentEntryIndex]
+        : null;
+    if (entry == null) return;
+    final groups = await db.getAllGroups();
+    if (!mounted) return;
+    String? groupName;
+    for (final g in groups) {
+      if (g.id == entry.groupId) {
+        groupName = g.name;
+        break;
+      }
     }
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('元数据'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _MetaRow(
+              label: '创建时间',
+              value: ExportFormat.dateTimeStr(entry.createdAt),
+            ),
+            _MetaRow(
+              label: '修改时间',
+              value: ExportFormat.dateTimeStr(entry.updatedAt),
+            ),
+            _MetaRow(label: '条目 ID', value: '${entry.id}'),
+            _MetaRow(label: '分组', value: groupName ?? '—'),
+            _MetaRow(
+              label: '天气',
+              value: (entry.weather ?? '').isEmpty ? '—' : entry.weather!,
+            ),
+            _MetaRow(
+              label: '地点',
+              value: (entry.location ?? '').isEmpty ? '—' : entry.location!,
+            ),
+            _MetaRow(
+              label: '内容哈希',
+              value: entry.hash ?? '—',
+              isMono: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _startNewEntry() async {
@@ -616,7 +710,6 @@ class _ContentPageState extends ConsumerState<ContentPage>
                     ),
                   );
                   if (!ok) _showMetaSaveFailed();
-                  _modifiedTime = _timeStr(now);
                 } else {
                   _scheduleSave();
                 }
@@ -724,7 +817,7 @@ class _ContentPageState extends ConsumerState<ContentPage>
   Widget _buildStatusBar() {
     final parts = <String>[
       if (_editingEntryId != null) '$_wordCount字',
-      ?_modifiedTime,
+      ?_entryTime,
     ];
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -1124,16 +1217,17 @@ class _ContentPageState extends ConsumerState<ContentPage>
           ),
         ),
         actions: [
-          if (_currentEntries.length > 1) ...[
+          if (_currentEntries.length > 1)
             IconButton(
-              icon: const Icon(Icons.arrow_upward),
-              onPressed: _goToPreviousEntry,
+              icon: const Icon(Icons.list),
+              tooltip: '当日条目',
+              onPressed: _showEntryList,
             ),
-            IconButton(
-              icon: const Icon(Icons.arrow_downward),
-              onPressed: _goToNextEntry,
-            ),
-          ],
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            tooltip: '元数据',
+            onPressed: _editingEntryId != null ? _showMetadata : null,
+          ),
           IconButton(
             icon: const Icon(Icons.folder),
             tooltip: '分组',
@@ -1214,6 +1308,46 @@ class _ContentPageState extends ConsumerState<ContentPage>
         onPressed: _startNewEntry,
         tooltip: '补记',
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+class _MetaRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool isMono;
+
+  const _MetaRow({required this.label, required this.value, this.isMono = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 64,
+            child: Text(
+              '$label:',
+              style: TextStyle(
+                fontSize: 12,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 12,
+                fontFamily: isMono ? 'monospace' : null,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
