@@ -44,8 +44,10 @@
 flutter pub get
 dart run build_runner build    # 生成 drift / riverpod 代码
 flutter run                     # 运行到已连接设备（调试）
-flutter build apk --release     # 构建发布 APK（产物在 build/app/outputs/flutter-apk/）
+./build_apk.sh                  # 构建发布 APK（产物在 build/app/outputs/flutter-apk/）
 ```
+
+`build_apk.sh` 会注入 git 标识：在标签提交上构建为正式版，其余提交（如 dev 分支）构建的应用关于页带有 **preview** 标识。
 
 ## 技术栈
 

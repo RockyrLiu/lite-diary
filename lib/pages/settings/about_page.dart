@@ -15,8 +15,24 @@ class AboutPage extends StatefulWidget {
 }
 
 class _AboutPageState extends State<AboutPage> {
+  /// 构建时通过 --dart-define=GIT_DESCRIBE 注入的 git describe 输出。
+  static const _gitDescribe = String.fromEnvironment('GIT_DESCRIBE');
+
   String? _version;
+  String? _buildNumber;
   bool _checking = false;
+
+  /// 注入值恰好等于语义化版本标签（如 v0.3.1）时为正式版，否则为 preview。
+  bool get _isPreview {
+    if (_gitDescribe.isEmpty) return false;
+    return !RegExp(r'^v?\d+\.\d+\.\d+$').hasMatch(_gitDescribe);
+  }
+
+  String? get _shortHash {
+    final m = RegExp(r'-g([0-9a-f]+)$').firstMatch(_gitDescribe);
+    if (m != null) return m.group(1);
+    return _gitDescribe.isEmpty ? null : _gitDescribe;
+  }
 
   @override
   void initState() {
@@ -32,7 +48,10 @@ class _AboutPageState extends State<AboutPage> {
       RegExp(r'-(debug|profile|release)$'),
       '',
     );
-    setState(() => _version = version);
+    setState(() {
+      _version = version;
+      _buildNumber = info.buildNumber;
+    });
   }
 
   /// 比较 GitHub tag（如 v0.3.1）与当前版本号，返回远端是否更新。
@@ -169,6 +188,29 @@ class _AboutPageState extends State<AboutPage> {
               ),
             ),
           ),
+          if (_isPreview) ...[
+            const SizedBox(height: 6),
+            Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.tertiaryContainer,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  'preview（build ${_buildNumber ?? '?'} · ${_shortHash ?? ''}）',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.onTertiaryContainer,
+                  ),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 24),
           Text(
             '一款简洁的私人日记应用，支持 Markdown 编辑、分组管理、标签系统、'
