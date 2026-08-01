@@ -286,7 +286,6 @@ class _CalendarViewPageState extends ConsumerState<_CalendarViewPage>
                 Text(
                   preview,
                   maxLines: null,
-                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 15, color: Theme.of(context).colorScheme.onSurfaceVariant, height: 1.5),
                 ),
               ],
