@@ -54,6 +54,9 @@ class MoodScoreService {
     );
     if (entries.isEmpty) return false;
 
+    final groups = await _db.getAllGroups();
+    final groupNames = {for (final g in groups) g.id: g.name};
+
     final buffer = StringBuffer();
     for (final d in days) {
       final dayEntries = entries.where((e) => startOfDay(e.date) == d).toList();
@@ -62,6 +65,10 @@ class MoodScoreService {
         '=== ${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')} ===',
       );
       for (final e in dayEntries) {
+        final group = groupNames[e.groupId];
+        if (group != null && group.isNotEmpty) {
+          buffer.writeln('分组: $group');
+        }
         if (e.title != null && e.title!.isNotEmpty) {
           buffer.writeln('标题: ${e.title}');
         }
@@ -71,11 +78,12 @@ class MoodScoreService {
     }
 
     final prompt = '''
-你是情绪分析助手。请根据下面每天的用户日记内容，为每一天的情绪状态打分。
+你是情绪分析助手。请根据下面每天的用户日记和文本内容，为每一天的情绪状态打分。
 评分范围：-5（极度低落）到 +5（极度高涨），0 为中性。
+注意：各则材料已标注所属分组。小说、剧本等明显虚构的创作不代表用户本人的真实情绪，应视为创作风格与兴趣的参考；而诗词、随笔等往往与真实生活、情绪密切相关，可纳入分析。请结合内容性质自行判断其参考价值。
 只输出一个 JSON 对象，键为日期（YYYY-MM-DD），值为数字，不要输出任何其他内容。
 
-日记内容：
+日记和文本内容：
 $buffer''';
 
     final response = await svc.sendMessage(

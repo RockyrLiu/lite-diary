@@ -55,7 +55,7 @@ class _RecentStatePageState extends ConsumerState<RecentStatePage> {
       if (!mounted) return;
       setState(() => _generating = false);
       if (!result.updated) {
-        setState(() => _error = '近 7 天没有新增日记内容，无需更新');
+        setState(() => _error = '近 7 天没有新增文本，无需更新');
       } else if (result.content == null || result.content!.isEmpty) {
         setState(() => _error = '近 7 天没有日记内容，先写点日记吧');
       }

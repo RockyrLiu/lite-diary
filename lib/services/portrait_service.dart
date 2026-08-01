@@ -128,7 +128,9 @@ class PortraitService {
   ) async {
     final entries = await _db.getEntriesInRange(start, end);
     if (entries.isEmpty) return;
-    final content = formatEntriesForLlm(entries);
+    final groups = await _db.getAllGroups();
+    final groupNames = {for (final g in groups) g.id: g.name};
+    final content = formatEntriesForLlm(entries, groupNames: groupNames);
     final typeName = switch (type) {
       'year' => '年',
       'quarter' => '季度',
@@ -137,11 +139,12 @@ class PortraitService {
     final label = _periodLabel(type, start, end);
     final prompt =
         '''
-你是一位日记分析助手。以下是用户$label期间的日记摘录。
+你是一位日记和文本分析助手。以下是用户$label期间的日记和文本摘录。
 请提炼这一时期的关键信息，形成一份简洁的分期摘要（200-400字），内容包括：主要生活事件、情绪基调、关注的事物、重要的变化或习惯。
+注意：各则材料已标注所属分组。小说、剧本等明显虚构的创作不代表用户本人的真实经历，应视为创作风格与兴趣的参考；而诗词、随笔等往往与真实生活、情绪密切相关，可纳入分析。请结合内容性质自行判断其参考价值。
 直接输出摘要正文，不要任何其他内容。
 
-日记内容：
+日记和文本内容：
 $content''';
     final summary = (await svc.sendMessage(
       messages: [
@@ -219,13 +222,14 @@ $content''';
       buffer.writeln();
     }
     final prompt = '''
-以下是用户不同时期的日记分期摘要（时间越近的摘要越详细）。
+以下是用户不同时期的日记和文本分期摘要（时间越近的摘要越详细）。
 请综合生成用户的"长期个人画像"，要求：
 1. 身份、职业、生活阶段以最近的摘要为准；早期摘要中的过时身份（如学生身份）只能作为人生轨迹的一部分，不能当作当前状态
 2. 提炼稳定特质：性格、价值观、兴趣、关系模式、长期主题
 3. 按以下小节输出（每个小节以【】标题开头）：【核心特质】【身份与生活阶段】【兴趣与关注】【关系与情感模式】【长期主题与变化轨迹】
 4. 语言简洁、有洞察力，直接输出正文
-5. 在正文最后另起一行输出"【简要】"开头的简要版画像（一句话，不超过 60 字，用于首页概览展示）
+5. 在正文最后另起一行输出"【简要】"开头的简要版画像（一句话，不超过 200 字，用于首页概览展示）
+注意：摘要中的虚构创作（如小说、剧本）不代表用户本人的真实经历，仅作创作风格参考；诗词、随笔等可纳入对用户的真实分析。
 
 分期摘要：
 $buffer''';
@@ -285,21 +289,27 @@ $buffer''';
       return (content: prev?.content, updated: false);
     }
 
+    final groups = await _db.getAllGroups();
+    final groupNames = {for (final g in groups) g.id: g.name};
+    const fictionNote =
+        '注意：各则材料已标注所属分组。小说、剧本等明显虚构的创作不代表用户本人的真实经历，应视为创作风格与兴趣的参考；而诗词、随笔等往往与真实生活、情绪密切相关，可纳入分析。请结合内容性质自行判断其参考价值。';
+
     final String recent;
     if (prev != null && prev.content.isNotEmpty) {
-      final content = formatEntriesForLlm(newEntries);
+      final content = formatEntriesForLlm(newEntries, groupNames: groupNames);
       final since = formatDateRangeLabel(prev.periodEnd!, windowEnd);
       final prompt =
           '''
-这是 AI 之前对用户近期状态（近 7 天）的总结，以及自上次总结以来（$since）新增的日记内容。
+这是 AI 之前对用户近期状态（近 7 天）的总结，以及自上次总结以来（$since）新增的日记和文本内容。
 请综合两者生成更新后的近期状态总结（300-500字）：保持仍然成立的观察，更新已变化的部分，删除已过时的内容。
 覆盖：当前生活状态、情绪基调、近期关注焦点、困扰或压力源、近期目标、人际关系动态。
-直接输出正文，并在正文最后另起一行输出"【简要】"开头的简要版（不超过 60 字，用于首页概览展示）。
+$fictionNote
+直接输出正文，并在正文最后另起一行输出"【简要】"开头的简要版（不超过 200 字，用于首页概览展示）。
 
 上次近期状态总结：
 ${prev.content}
 
-新增日记内容：
+新增日记和文本内容：
 $content''';
       recent = (await svc.sendMessage(
         messages: [
@@ -307,15 +317,16 @@ $content''';
         ],
       )).trim();
     } else {
-      final content = formatEntriesForLlm(newEntries);
+      final content = formatEntriesForLlm(newEntries, groupNames: groupNames);
       final range = formatDateRangeLabel(windowStart, windowEnd);
       final prompt =
           '''
-以下是用户最近 $recentWindowDays 天（$range）的日记内容。
+以下是用户最近 $recentWindowDays 天（$range）的日记和文本内容。
 请分析并生成用户的"近期状态"总结（300-500字），覆盖：当前生活状态、情绪基调、近期关注焦点、困扰或压力源、近期目标、人际关系动态。
-直接输出正文，并在正文最后另起一行输出"【简要】"开头的简要版（不超过 60 字，用于首页概览展示）。
+$fictionNote
+直接输出正文，并在正文最后另起一行输出"【简要】"开头的简要版（不超过 200 字，用于首页概览展示）。
 
-日记内容：
+日记和文本内容：
 $content''';
       recent = (await svc.sendMessage(
         messages: [

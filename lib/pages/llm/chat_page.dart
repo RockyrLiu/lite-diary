@@ -82,13 +82,19 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     return _formatEntries(entries);
   }
 
-  String _formatEntries(List<Entry> entries) {
+  Future<String> _formatEntries(List<Entry> entries) async {
+    final groups = await ref.read(databaseProvider).getAllGroups();
+    final groupNames = {for (final g in groups) g.id: g.name};
     final buffer = StringBuffer();
     for (final e in entries) {
       buffer.writeln('---');
       buffer.writeln(
         '日期: ${e.date.year}-${e.date.month.toString().padLeft(2, '0')}-${e.date.day.toString().padLeft(2, '0')}',
       );
+      final group = groupNames[e.groupId];
+      if (group != null && group.isNotEmpty) {
+        buffer.writeln('分组: $group');
+      }
       if (e.title != null) buffer.writeln('标题: ${e.title}');
       buffer.writeln(e.content);
       buffer.writeln();

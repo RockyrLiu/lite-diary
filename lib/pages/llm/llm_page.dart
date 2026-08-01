@@ -181,7 +181,7 @@ class _ProfileOverviewPageState extends ConsumerState<_ProfileOverviewPage>
         ref.read(databaseProvider),
       ).updateRecentState(svc);
       await _load();
-      _snack(result.updated ? '已更新近期状态' : '近 7 天没有新增日记，无需更新');
+      _snack(result.updated ? '已更新近期状态' : '近 7 天没有新增文本，无需更新');
     } catch (e) {
       _snack('更新失败: $e');
     } finally {
@@ -395,7 +395,7 @@ class _MoodSuggestionOverviewPageState
             icon: Icons.lightbulb_outline,
             title: 'AI 建议',
             content: _suggestion ?? '',
-            maxLines: 12,
+            maxLines: 17,
             updating: _updatingSuggestion,
             onUpdate: _updateSuggestion,
             onTap: () => Navigator.push(

@@ -52,7 +52,10 @@ class _ExportPageState extends ConsumerState<ExportPage> {
 
   // ── Date range dialog ──
 
-  Future<_DateRange?> _pickDateRange({bool defaultAllTime = false}) async {
+  Future<_DateRange?> _pickDateRange({
+    bool defaultAllTime = false,
+    String? warning,
+  }) async {
     if (mounted) {
       ScaffoldMessenger.of(context).clearSnackBars();
     }
@@ -131,6 +134,10 @@ class _ExportPageState extends ConsumerState<ExportPage> {
                 if (errorText != null) ...[
                   const SizedBox(height: 8),
                   Text(errorText!, style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 13)),
+                ],
+                if (warning != null) ...[
+                  const SizedBox(height: 8),
+                  Text(warning, style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12)),
                 ],
               ],
             ),
@@ -286,7 +293,9 @@ class _ExportPageState extends ConsumerState<ExportPage> {
   // ── Export: 诗稿 ──
 
   Future<void> _exportPoetry() async {
-    final range = await _pickDateRange();
+    final range = await _pickDateRange(
+      warning: '以诗稿格式导出的数据无法导入恢复',
+    );
     if (range == null) return;
 
     final db = ref.read(databaseProvider);

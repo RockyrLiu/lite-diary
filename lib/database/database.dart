@@ -274,7 +274,7 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> insertDefaultAnalysisPrompts() async {
     final defaults = <Map<String, String>>[
-      {'name': '内容摘要', 'template': '请对以上日记内容进行总结，提炼关键要点。'},
+      {'name': '内容摘要', 'template': '请对以上日记和文本内容进行总结，提炼关键要点。'},
     ];
     for (var i = 0; i < defaults.length; i++) {
       final item = defaults[i];
@@ -322,10 +322,6 @@ class AppDatabase extends _$AppDatabase {
               p.periodStart.equals(periodStart) & p.periodEnd.equals(periodEnd),
         ))
         .go();
-  }
-
-  Future<void> deleteAllPeriodSummaries() {
-    return delete(periodSummaries).go();
   }
 
   // ========== Portrait ==========
