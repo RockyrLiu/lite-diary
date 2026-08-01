@@ -41,7 +41,7 @@
 - **main** — 稳定发布版，对应 GitHub Release 标签（如 v0.3.1）
 - **dev** — 最新功能（未经充分测试，可能存在未知问题）：`git checkout dev` 后自行构建
 
-**版本约定**：每次发布正式版后，dev 分支立即将版本号升至下一个版本（如发布 v0.3.1 后 dev 为 0.3.2+17）。因此 dev 构建的版本号始终高于已发布版本，可据此区分构建；preview 构建不再递增 buildNumber，而是由 `build_apk.sh` 注入 git 标识，关于页显示 **preview** 徽标并标明构建来源提交（如 `preview(ef6529f)`），精确反映构建状态。
+**版本约定**：每次发布正式版后，dev 分支立即将版本号升至下一个版本并加 `-preview` 后缀（如发布 v0.3.1 后 dev 为 0.3.2-preview+17），系统应用信息中可直接看到 `0.3.2-preview` 标识。preview 构建不再递增 buildNumber，而是由 `build_apk.sh` 注入 git 标识，关于页显示 **preview** 徽标并标明构建来源提交（如 `preview(ef6529f)`），精确反映构建状态。
 
 ## 运行与构建
 
