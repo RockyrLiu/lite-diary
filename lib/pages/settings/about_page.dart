@@ -27,7 +27,12 @@ class _AboutPageState extends State<AboutPage> {
   Future<void> _loadVersion() async {
     final info = await PackageInfo.fromPlatform();
     if (!mounted) return;
-    setState(() => _version = info.version);
+    // 调试/性能构建会附加 -debug/-profile 后缀，仅用于显示与比较时剥离。
+    final version = info.version.replaceFirst(
+      RegExp(r'-(debug|profile|release)$'),
+      '',
+    );
+    setState(() => _version = version);
   }
 
   /// 比较 GitHub tag（如 v0.3.1）与当前版本号，返回远端是否更新。
